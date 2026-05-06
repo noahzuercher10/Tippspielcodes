@@ -1,5 +1,7 @@
 /* ===============================================
    Tippspiel - global stylesheet
+   Anlehnung an Mockups: dunkler Hintergrund, blaue
+   Akzente, abgerundete Karten und klare Typografie.
    =============================================== */
 :root {
   --bg:        #0e1116;
@@ -12,7 +14,7 @@
   --accent:    #19c37d;
   --danger:    #ef4d4d;
   --warn:      #f6b93b;
-  --radius:    10px;
+  --radius:    12px;
   --shadow:    0 8px 24px rgba(0,0,0,.35);
 }
 
@@ -64,7 +66,7 @@ a:hover { text-decoration: underline; }
   background: var(--surface-2); color: var(--text);
 }
 .btn:hover { background: #2c3447; }
-.btn.primary { background: var(--primary); color: white; width: 100%; margin-top: 6px; }
+.btn.primary { background: var(--primary); color: white; }
 .btn.primary:hover { background: var(--primary-2); }
 .btn.danger  { background: var(--danger);  color: white; }
 .btn.small   { padding: 6px 10px; font-size: 12px; }
@@ -126,29 +128,59 @@ a:hover { text-decoration: underline; }
 }
 .card h2 { margin-top: 0; font-size: 18px; }
 
+/* ---- Profil ---- */
+.profile-head {
+  display: flex; align-items: center; gap: 22px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.profile-avatar {
+  width: 96px; height: 96px; font-size: 36px; border-radius: 50%;
+}
+.profile-bg { display: flex; flex-direction: column; gap: 6px; }
+.bg-preview {
+  width: 220px; height: 100px; object-fit: cover;
+  border-radius: 8px; border: 1px solid #2c3447;
+}
+
 /* ---- Tipps Tabelle / Spielzeile ---- */
 .match {
   display: grid;
-  grid-template-columns: 1fr 70px 70px 1fr 110px;
+  grid-template-columns: 1fr 70px 70px 1fr 220px;
   gap: 10px; align-items: center;
   padding: 10px 8px; border-bottom: 1px solid #232b3b;
+}
+.match.money {
+  grid-template-columns: 1fr 1.6fr 1fr 220px;
 }
 .match .tname  { font-weight: 600; }
 .match .tname.away { text-align: right; }
 .match input[type=number] {
-  width: 60px; text-align: center;
+  width: 70px; text-align: center;
   background: var(--surface-2); color: var(--text);
   border: 1px solid #2c3447; border-radius: 6px; padding: 6px;
   font-size: 14px;
 }
+.match select.winner {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid #2c3447; border-radius: 6px; padding: 6px;
+  font-size: 13px; min-width: 200px;
+}
+.match .stake { width: 110px !important; }
+.match .winner-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .match .save { background: var(--accent); color: #04221a; font-weight: 700; }
 .match .save:hover { background: #14a36b; }
-.match .vs { color: var(--muted); text-align:center; font-weight: 700; }
+.match .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 
-.dropdowns { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.dropdowns select, .dropdowns input[type=date] {
+/* ---- Dropdown-Bar oberhalb der Spiele ---- */
+.dropdowns { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.dropdowns .dd {
+  display: inline-flex; flex-direction: column;
+  color: var(--muted); font-size: 12px; gap: 4px;
+}
+.dropdowns select, .dropdowns input[type=date], .dropdowns input[type=text] {
   background: var(--surface-2); color: var(--text);
   border: 1px solid #2c3447; border-radius: 8px; padding: 8px;
+  min-width: 160px;
 }
 
 .tip-progress {
@@ -171,6 +203,7 @@ tr:last-child td { border-bottom: 0; }
   display: inline-block; padding: 2px 8px;
   background: var(--surface-2); border-radius: 999px;
   font-size: 12px; color: var(--muted);
+  margin-left: 4px;
 }
 .badge.points { background: rgba(79,140,255,.18); color: #aac6ff; }
 .badge.money  { background: rgba(25,195,125,.16); color: #87e5b8; }
@@ -180,7 +213,7 @@ tr:last-child td { border-bottom: 0; }
   font-size: 13px; color: var(--accent); font-weight: 700;
 }
 
-/* ---- Group / Form-Grid ---- */
+/* ---- Form-Grid ---- */
 .form-grid {
   display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
   gap: 10px; margin-bottom: 12px;
@@ -190,9 +223,47 @@ tr:last-child td { border-bottom: 0; }
   border: 1px solid #2c3447; border-radius: 8px; padding: 8px;
 }
 
+/* ---- Modale (Dialog) ---- */
+dialog.modal {
+  background: var(--surface); color: var(--text);
+  border: 1px solid #2c3447; border-radius: var(--radius);
+  padding: 22px; min-width: 360px; max-width: 92vw;
+  box-shadow: var(--shadow);
+}
+dialog.modal::backdrop { background: rgba(0,0,0,.55); }
+dialog.modal h3 { margin-top: 0; }
+dialog.modal label {
+  display: block; color: var(--muted); font-size: 13px; margin-bottom: 12px;
+}
+dialog.modal input, dialog.modal select {
+  display: block; width: 100%; margin-top: 4px; padding: 8px 10px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid #2c3447; border-radius: 8px;
+}
+.modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px;
+}
+
+/* ---- Rangliste-Tabs (rechts -> links) ---- */
+.lb-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  flex-direction: row-reverse;        /* von rechts nach links */
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+.lb-tab {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid #2c3447; border-radius: 999px;
+  padding: 8px 14px; font-size: 13px; cursor: pointer;
+  transition: background .2s;
+}
+.lb-tab:hover  { background: #2c3447; }
+.lb-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
 @media (max-width: 700px) {
   .topbar  { flex-wrap: wrap; gap: 8px; }
   .mainnav { overflow-x: auto; }
   .match   { grid-template-columns: 1fr 50px 50px 1fr; }
   .match .save { grid-column: 1 / -1; }
+  .match.money { grid-template-columns: 1fr 1fr; }
 }

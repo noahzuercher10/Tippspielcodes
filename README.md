@@ -4,75 +4,118 @@ Ein Tippspiel das wir fuer die Projektphase des ZbW erstellen.
 
 ---
 
-## Inhalt der Codebase
+## Schnellstart (XAMPP)
 
-```
-Tippspielcodes/
-├── index.php            Login-Seite
-├── register.php         Registrierungs-Seite
-├── config/db.php        PDO-Connection (HOST/USER/PASS hier anpassen)
-├── includes/
-│   ├── auth.php         Login / Logout / Session
-│   ├── functions.php    Punkteberechnung + Geldlogik
-│   ├── header.php       gemeinsamer Seitenkopf (Profil, Modus, Nav)
-│   └── footer.php
-├── api/                 alle PHP-Endpunkte (JSON)
-│   ├── me.php           Daten des eingeloggten Users
-│   ├── sports.php       Liste der Sportarten
-│   ├── leagues.php      Ligen einer Sportart
-│   ├── matches.php      Spiele eines Tages mit eigenem Tipp
-│   ├── bets.php         Tipp speichern (Punkte- oder Geld-Modus)
-│   ├── groups.php       Gruppen anlegen / beitreten / verlassen / Detail
-│   ├── leaderboard.php  globale Rangliste
-│   ├── admin.php        Admin-Aktionen (Sportart, Liga, Team, Spiel, Resultat)
-│   └── logout.php
-├── pages/               UI-Seiten
-│   ├── home.php
-│   ├── groups.php
-│   ├── leaderboard.php
-│   ├── sports.php       (Sportart -> Liga -> Tag -> Spiele tippen)
-│   ├── profile.php
-│   └── admin.php
-├── css/style.css        globales Stylesheet (dunkles Theme)
-├── js/
-│   ├── app.js           Helper (fetch, Modus-Dropdown, Toasts)
-│   ├── sports.js
-│   ├── groups.js
-│   └── admin.js
-└── sql/tippspiel.sql    DB-Schema + Beispieldaten
-```
+1. **XAMPP** installieren, Apache + MySQL starten.
+2. Diesen Ordner nach `C:\xampp\htdocs\` kopieren und in **`tipsspiel`** umbenennen.
+3. <http://localhost/phpmyadmin> oeffnen → Reiter **Importieren** → `sql/tippspiel.sql` waehlen → OK.
+4. <http://localhost/tipsspiel/> oeffnen.
+
+### Login-Daten der Beispiel-Accounts (Passwort fuer alle: `admin123`)
+
+| Username | Rolle  | Hinweis                              |
+| -------- | ------ | ------------------------------------ |
+| admin    | admin  | Voller Zugriff (Spiele/Resultate/User/Geld verschenken) |
+| noah     | user   | normaler Spieler, Startkapital 2'500 |
+| sinan    | user   | normaler Spieler                     |
+
+> Wichtig: Falls dein Ordner anders heisst als `tipsspiel`, wuerden alle
+> internen Pfade `/tipsspiel/...` brechen. Entweder umbenennen oder die
+> Pfade im Code ersetzen.
 
 ---
 
-## Setup mit XAMPP (Windows)
+## Was es tut
+
+* **Punktemodus** – exakter Tipp, Punkte nach Doku-Schema (10/5/1/1/3).
+* **Geldmodus** – nur **Sieger oder Unentschieden** tippen.
+  * Startkapital: **2'500**
+  * Min-Einsatz pro Spiel: **10**
+  * Max-Einsatz pro Spiel: **500** (faellt mit dem Guthaben mit, geht
+    aber nie ueber 500)
+  * Richtig getippt → Einsatz wird **verdoppelt** ausgezahlt
+  * Falsch → Einsatz **weg**
+  * Pleite (Guthaben < 10) → Admin muss Geld schenken (s. unten)
+* **Gruppen** – User kann Gruppen erstellen oder ueber **Beitrittscode**
+  beitreten. Pro Gruppe ein fester Modus + Liga.
+* **Rangliste** – globale Modus-Rangliste + ein Tab pro eigener Gruppe
+  (von rechts nach links angeordnet).
+* **Profil** – Avatar mit Initialen + optionales eigenes
+  **Hintergrundbild** (Upload-Button rechts vom Avatar).
+* **Admin** – Sportarten/Ligen/Teams/Spiele anlegen, Resultate
+  eintragen (verteilt automatisch Punkte und Geld), User loeschen,
+  **Geld verschenken**, **Spielplan-Import via TheSportsDB**.
+
+---
+
+## Sportarten & Ligen (laut Doku-Entscheidung)
+
+Die App ist mit 5 Sportarten vorbefuellt:
+
+| Sportart   | Typ      | Beispiel-Ligen                                   |
+| ---------- | -------- | ------------------------------------------------ |
+| Fussball   | Team     | Schweizer Super League, Bundesliga, Premier League, La Liga, WM 2026 |
+| Eishockey  | Team     | National League (CH), NHL                        |
+| Basketball | Team     | NBA, EuroLeague                                  |
+| Tennis     | Einzel   | ATP Tour, Grand Slam                             |
+| Formel 1   | Einzel   | Saison 2026                                      |
+
+Sample-Spiele sind in `sql/tippspiel.sql` enthalten — fuer jede Liga
+mindestens 2 Beispiele und nur Teams aus der dazugehoerigen Sportart.
+
+---
+
+## Spielplan automatisch holen (TheSportsDB)
+
+Wir nutzen die kostenlose **TheSportsDB**-API (kein Key noetig fuer
+Basisendpoints): <https://www.thesportsdb.com/free_sports_api>
+
+Pro Liga hinterlegen wir in der Tabelle `leagues.api_id` die TheSportsDB-
+Liga-ID (z.B. Super League = `4344`, Bundesliga = `4331`, NBA = `4387`).
+
+Der Endpunkt **`/api/import-from-thesportsdb.php?league_id=<id>`** holt
+fuer eine Liga:
+* die naechste Runde -> als `upcoming`-Spiele eintragen
+* die letzte gespielte Runde -> als `finished` mit Resultat speichern
+  und sofort die Tipps der User auswerten (Punkte und Geld werden
+  verbucht).
+
+**Aufruf**: nur Admins. Im Browser einfach
+<http://localhost/tipsspiel/api/import-from-thesportsdb.php?league_id=1>
+aufrufen, oder einen Button im Admin-Dashboard ergaenzen.
+
+Der Admin kann jederzeit von Hand korrigieren (Resultat eintragen,
+Spiele anlegen, Teams aendern).
+
+---
+
+## Schritt-fuer-Schritt: Datenbank verbinden
 
 ### 1. XAMPP installieren
-Lade XAMPP von <https://www.apachefriends.org> und installiere es.
-Starte im XAMPP Control Panel **Apache** und **MySQL**.
+* Download: <https://www.apachefriends.org/de/>
+* Installieren (Standardpfad `C:\xampp`).
+* **XAMPP Control Panel** oeffnen → **Apache** start, **MySQL** start.
 
-### 2. Projekt in den Webserver legen
-Kopiere den ganzen Ordner `Tippspielcodes` nach
-`C:\xampp\htdocs\` und benenne ihn in **`tippspiel`** um:
-
-```
-C:\xampp\htdocs\tippspiel\
-```
-
-(Wenn du einen anderen Ordnernamen wahlst, musst du in den
-PHP/JS-Dateien die Pfade `/tippspiel/...` anpassen.)
+### 2. Projektordner ins htdocs
+Kopiere den Ordner `Tippspielcodes` nach `C:\xampp\htdocs\` und
+benenne ihn um in `tipsspiel`.
 
 ### 3. Datenbank importieren
-1. Oeffne <http://localhost/phpmyadmin>
-2. Klicke links auf **"Neu"** und erstelle die Datenbank
-   `tippspiel` mit Kollation `utf8mb4_unicode_ci` *(optional, das Skript
-   legt sie selber an)*.
-3. Klicke auf den Reiter **"Importieren"**.
-4. Waehle die Datei `sql/tippspiel.sql` und klicke auf **"OK"**.
+* <http://localhost/phpmyadmin> oeffnen
+* Reiter **"Importieren"**
+* Datei `sql/tippspiel.sql` waehlen → **OK**
 
-### 4. DB-Zugang konfigurieren
-Standardmaessig ist im XAMPP der MySQL-Login `root` ohne Passwort.
-Falls dein Setup anders ist, oeffne `config/db.php` und passe an:
+Das Skript loescht eine evtl. vorhandene DB `tippspiel`, legt sie neu
+an und fuellt Beispiel-Daten.
 
+Alternativ ueber Konsole:
+```cmd
+cd C:\xampp\mysql\bin
+mysql.exe -u root < C:\xampp\htdocs\tipsspiel\sql\tippspiel.sql
+```
+
+### 4. DB-Zugang (`config/db.php`)
+Standard-XAMPP funktioniert direkt. Bei abweichendem Setup:
 ```php
 const DB_HOST = '127.0.0.1';
 const DB_NAME = 'tippspiel';
@@ -80,67 +123,92 @@ const DB_USER = 'root';
 const DB_PASS = '';
 ```
 
-### 5. App im Browser oeffnen
-Gehe auf <http://localhost/tippspiel/>.
-Mit den Beispiel-Logins kannst du sofort starten:
-
-| Username | Passwort  | Rolle  |
-| -------- | --------- | ------ |
-| admin    | admin123  | admin  |
-| noah     | admin123  | user   |
-| sinan    | admin123  | user   |
-
-> Hinweis: alle Beispiel-Konten haben das gleiche bcrypt-Passwort
-> `admin123`. Nach dem ersten Login bitte aendern.
+### 5. Im Browser oeffnen
+<http://localhost/tipsspiel/> – mit `admin / admin123` einloggen.
 
 ---
 
-## Verbindung zur DB im Detail
+## Projektstruktur
 
-Die App nutzt **PDO** mit prepared statements. Verbindungsdaten stehen
-ausschliesslich in `config/db.php`. Jede PHP-Datei holt sich die
-Connection ueber den globalen Helper `db()`:
-
-```php
-require_once __DIR__ . '/config/db.php';
-$stmt = db()->prepare('SELECT * FROM users WHERE id = ?');
-$stmt->execute([$id]);
+```
+tipsspiel/
+├── index.php                Login
+├── register.php             Registrierung
+├── config/db.php            DB-Zugang
+├── includes/
+│   ├── auth.php             Login/Logout/Session
+│   ├── functions.php        Punkte- + Geldlogik
+│   ├── header.php           Topbar + Nav (server-seitig)
+│   └── footer.php
+├── pages/
+│   ├── home.php             Dashboard (Punkte + Guthaben)
+│   ├── groups.php           Meine Gruppen + Modal-Dialoge
+│   ├── leaderboard.php      Globale + Gruppen-Rangliste
+│   ├── sports.php           Tippen-Workflow
+│   ├── profile.php          Avatar + Hintergrundbild-Upload
+│   └── admin.php            Admin-Dashboard
+├── api/
+│   ├── login.php / register.php / logout.php / me.php
+│   ├── sports.php / leagues.php / matches.php
+│   ├── bets.php             Tipp speichern (Punkte/Money)
+│   ├── my-bets.php          Eigene Tipps
+│   ├── groups.php           Gruppen-CRUD
+│   ├── leaderboard.php      Globale Rangliste
+│   ├── upload-background.php Hintergrundbild-Upload
+│   ├── admin.php            Admin-Aktionen (inkl. gift_money)
+│   └── import-from-thesportsdb.php  Spielplan-Import
+├── css/style.css
+├── js/  app.js sports.js groups.js admin.js
+├── img/backgrounds/         Hintergrundbilder der User (wird beim 1. Upload erstellt)
+└── sql/tippspiel.sql
 ```
 
-So musst du DB-Zugangsdaten nur an *einer* Stelle anpassen.
+---
+
+## Punktesystem (validiert gegen alle Doku-Beispiele)
+
+| Tipp | Resultat | Punkte |
+| ---- | -------- | -----: |
+| 1:1  | 2:3      | 0      |
+| 2:1  | 2:3      | 1      |
+| 2:3  | 2:3      | 10     |
+| 3:2  | 2:3      | 0      |
+| 2:5  | 2:3      | 6      |
+| 1:2  | 2:3      | 8      |
+| 4:3  | 2:3      | 1      |
 
 ---
 
-## Spielmodi (laut Doku)
+## Geldlogik (Spec)
 
-* **Punktemodus**
-  * Genau richtiger Tipp = 10 Punkte
-  * Richtiger Sieger / Unentschieden = 5 Punkte
-  * Richtige Anzahl Heimtore = 1 Punkt
-  * Richtige Anzahl Auswaertstore = 1 Punkt
-  * Richtige Tordifferenz (nur bei richtigem Sieger-Tipp) = 3 Punkte
-* **Geldmodus**
-  * Falscher Tipp -> Einsatz weg.
-  * Genau richtiger Tipp -> Einsatz wird verdoppelt.
-  * Maximaler Einsatz pro Tipp = 25 % des aktuellen Guthabens (mind. 10).
+```
+balance < 10              -> max stake = 0  (Admin muss aushelfen)
+balance >= 10             -> max stake = min(500, balance)
+korrekter Sieger-Tipp     -> Auszahlung = Einsatz * 2
+falsch                    -> Auszahlung = 0  (Einsatz war beim Setzen weg)
+```
 
----
+## Admin: Geld verschenken
+Im Admin-Dashboard hat jede User-Zeile ein Eingabefeld + Button
+"Geld geben". Der Betrag wird auf das User-Wallet **und** in alle
+Gruppen-Mitgliedschaften des Users gutgeschrieben.
 
-## Rollen
-
-* **user** - kann Tipps abgeben, Gruppen erstellen (wird dabei Gruppen-Admin),
-  Gruppen beitreten via Beitrittscode, Rangliste sehen.
-* **admin** - alles, plus: Sportarten, Ligen, Teams, Spiele anlegen,
-  Resultate eintragen (loest automatisch Punkte- und Geldverteilung aus),
-  User loeschen.
+## Profil: Hintergrundbild
+Profilseite oeffnen → Button "Hintergrundbild hinzufuegen" rechts neben
+dem Avatar. Datei waehlen (jpg/png/webp/gif, max 4 MB) → wird in
+`img/backgrounds/` gespeichert. Solange kein eigenes Bild gesetzt ist,
+bleibt der Standard-Hintergrund. Ueber "Standard wiederherstellen"
+laesst es sich wieder zuruecksetzen.
 
 ---
 
-## Bekannte To-dos / mögliche Erweiterungen
+## Troubleshooting
 
-* API-Anbindung an externen Spielplan (siehe Doku - "API-Informieren")
-* Push-Benachrichtigungen bei ausstehenden Tipps
-* Profilbild-Upload
-* Pott-Modus (10.- pro Tipp -> Tagespott aufteilen)
-* Mehrsprachigkeit / Dark-Light-Mode-Toggle
-* Chat unter Tippern
+| Symptom                                            | Loesung                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------- |
+| `DB-Fehler: Unknown DB ...`                        | DB nicht importiert → Schritt 3 nochmals                      |
+| `DB-Fehler: Access denied for user 'root'`         | `config/db.php` anpassen                                      |
+| Login geht nicht trotz `admin / admin123`          | Import nicht vollstaendig → Schritt 3 wiederholen             |
+| 404 nach Login                                     | Ordner heisst nicht `tipsspiel` → umbenennen                  |
+| Hintergrundbild laesst sich nicht hochladen        | `img/backgrounds/` muss schreibbar sein (XAMPP normalerweise OK) |
+| `import-from-thesportsdb.php` liefert leeren Datenstand | Liga hat keine `api_id`. In `leagues.api_id` muss die TheSportsDB-ID stehen. |

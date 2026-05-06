@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
     if ($r['ok']) {
         $_SESSION['user_id'] = $r['id'];
-        header('Location: /tippspiel/pages/home.php');
+        header('Location: /Tippspiel/pages/home.php');
         exit;
     }
     $err = $r['error'];
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <title>Tippspiel - Registrieren</title>
-<link rel="stylesheet" href="/tippspiel/css/style.css">
+<link rel="stylesheet" href="/Tippspiel/css/style.css">
 </head>
 <body class="auth-body">
   <div class="auth-card">
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <button class="btn primary" type="submit">Konto erstellen</button>
     </form>
 
-    <p class="sub">Schon ein Konto? <a href="/tippspiel/index.php">Login</a></p>
+    <p class="sub">Schon ein Konto? <a href="/Tippspiel/index.php">Login</a></p>
   </div>
 </body>
 </html>

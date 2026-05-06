@@ -1,14 +1,14 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 if (current_user()) {
-    header('Location: /tippspiel/pages/home.php');
+    header('Location: /Tippspiel/pages/home.php');
     exit;
 }
 
 $err = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (login($_POST['username'] ?? '', $_POST['password'] ?? '')) {
-        header('Location: /tippspiel/pages/home.php');
+        header('Location: /Tippspiel/pages/home.php');
         exit;
     }
     $err = 'Login fehlgeschlagen.';
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <title>Tippspiel - Login</title>
-<link rel="stylesheet" href="/tippspiel/css/style.css">
+<link rel="stylesheet" href="/Tippspiel/css/style.css">
 </head>
 <body class="auth-body">
   <div class="auth-card">
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <button type="submit" class="btn primary">Login</button>
     </form>
 
-    <p class="sub">Noch kein Konto? <a href="/tippspiel/register.php">Jetzt registrieren</a></p>
+    <p class="sub">Noch kein Konto? <a href="/Tippspiel/register.php">Jetzt registrieren</a></p>
   </div>
 </body>
 </html>

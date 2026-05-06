@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/header.php';
   <p>
     Waehle oben rechts deinen <strong>Modus</strong> (Punkte oder imaginaeres Geld) und
     nutze das Menue, um Gruppen zu verwalten, die Rangliste anzuschauen oder
-    auf Spiele in den verschiedenen Sportarten zu tippen.
+    auf Spiele zu tippen.
   </p>
 
   <div class="form-grid" style="margin-top:14px">
@@ -22,11 +22,8 @@ require_once __DIR__ . '/../includes/header.php';
       <div style="font-size:28px;color:var(--accent);font-weight:700">
         <?= number_format((float)$user['money_balance'], 2, '.', "'") ?>
       </div>
-    </div>
-    <div class="card" style="margin:0">
-      <strong>Rolle</strong>
-      <div style="font-size:20px;font-weight:700;text-transform:uppercase">
-        <?= htmlspecialchars($user['role']) ?>
+      <div style="font-size:11px;color:var(--muted)">
+        Max-Einsatz pro Spiel: 500 (mind. 10)
       </div>
     </div>
   </div>
@@ -40,6 +37,18 @@ require_once __DIR__ . '/../includes/header.php';
     <li>Richtige Anzahl Heimtore = <strong>1 Punkt</strong></li>
     <li>Richtige Anzahl Auswaertstore = <strong>1 Punkt</strong></li>
     <li>Richtige Tordifferenz (nur bei richtigem Sieger-Tipp) = <strong>3 Punkte</strong></li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>Imaginaeres Geld</h2>
+  <ul>
+    <li>Startkapital: <strong>2'500</strong></li>
+    <li>Max-Einsatz pro Spiel: <strong>500</strong></li>
+    <li>Min-Einsatz pro Spiel: <strong>10</strong></li>
+    <li>Tipp = nur Sieger oder Unentschieden</li>
+    <li>Richtig getippt -> Einsatz wird verdoppelt</li>
+    <li>Falsch -> Einsatz weg. Bei Pleite hilft der Admin aus.</li>
   </ul>
 </section>
 

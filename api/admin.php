@@ -74,6 +74,18 @@ try {
             echo json_encode(['ok'=>true]);
             break;
 
+        case 'gift_money':
+            $uid    = (int)($in['user_id'] ?? 0);
+            $amount = round((float)($in['amount'] ?? 0), 2);
+            if ($uid <= 0 || $amount <= 0) throw new RuntimeException('Ungueltige Eingabe.');
+            $pdo->prepare('UPDATE users SET money_balance = money_balance + ? WHERE id = ?')
+                ->execute([$amount, $uid]);
+            // auch in allen Gruppen, in denen der User Mitglied ist:
+            $pdo->prepare('UPDATE group_members SET money = money + ? WHERE user_id = ?')
+                ->execute([$amount, $uid]);
+            echo json_encode(['ok'=>true,'amount'=>$amount]);
+            break;
+
         case 'list_users':
             echo json_encode($pdo->query('SELECT id,username,first_name,last_name,role,points_total,money_balance FROM users ORDER BY id')->fetchAll());
             break;

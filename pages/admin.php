@@ -66,5 +66,5 @@ require_once __DIR__ . '/../includes/header.php';
   </table>
 </section>
 
-<script src="/tippspiel/js/admin.js"></script>
+<script src="/Tippspiel/js/admin.js"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

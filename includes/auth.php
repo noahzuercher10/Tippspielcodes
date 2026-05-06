@@ -26,7 +26,7 @@ function require_login(): array {
             http_response_code(401);
             echo json_encode(['error' => 'not authenticated']);
         } else {
-            header('Location: /tippspiel/index.php');
+            header('Location: /Tippspiel/index.php');
         }
         exit;
     }

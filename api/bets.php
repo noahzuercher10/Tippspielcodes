@@ -1,12 +1,8 @@
 <?php
 /**
  * POST /api/bets.php
- * Body: { match_id, mode: "points"|"money", tip_home, tip_away, stake?, group_id? }
- *
- * - Punktemodus : speichert Tipp (kein Einsatz)
- * - Geldmodus   : zieht Einsatz vom Wallet ab; Auszahlung erst nach Auswertung
- *
- * Tipps koennen nur abgegeben werden bevor das Spiel begonnen hat.
+ *  Punktemodus : { match_id, mode:"points", tip_home, tip_away, group_id? }
+ *  Geldmodus   : { match_id, mode:"money",  tip_winner ('home'|'draw'|'away'), stake, group_id? }
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
@@ -18,14 +14,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $in = json_decode(file_get_contents('php://input'), true) ?: $_POST;
-$matchId = (int) ($in['match_id'] ?? 0);
-$mode    = $in['mode']            ?? 'points';
-$tipH    = (int) ($in['tip_home'] ?? -1);
-$tipA    = (int) ($in['tip_away'] ?? -1);
-$stake   = (float)($in['stake']   ?? 0);
-$groupId = isset($in['group_id']) && $in['group_id'] !== '' ? (int)$in['group_id'] : null;
+$matchId    = (int) ($in['match_id'] ?? 0);
+$mode       = $in['mode'] ?? 'points';
+$groupId    = isset($in['group_id']) && $in['group_id'] !== '' ? (int)$in['group_id'] : null;
 
-if ($matchId <= 0 || $tipH < 0 || $tipA < 0 || !in_array($mode, ['points','money'], true)) {
+if ($matchId <= 0 || !in_array($mode, ['points','money'], true)) {
     http_response_code(400); echo json_encode(['error'=>'invalid input']); exit;
 }
 
@@ -40,26 +33,39 @@ try {
         throw new RuntimeException('Spiel hat bereits begonnen oder ist beendet.');
     }
 
-    if ($mode === 'money') {
+    if ($mode === 'points') {
+        $tipH = (int)($in['tip_home'] ?? -1);
+        $tipA = (int)($in['tip_away'] ?? -1);
+        if ($tipH < 0 || $tipA < 0) throw new RuntimeException('Bitte beide Toranzahlen eingeben.');
+
+        $tipWinner = null;
+        $stake     = 0;
+    } else { // money
+        $tipWinner = $in['tip_winner'] ?? '';
+        $stake     = round((float)($in['stake'] ?? 0), 2);
+        if (!in_array($tipWinner, ['home','draw','away'], true)) {
+            throw new RuntimeException('Bitte Sieger oder Unentschieden tippen.');
+        }
         $u = $pdo->prepare('SELECT money_balance FROM users WHERE id = ? FOR UPDATE');
         $u->execute([$user['id']]);
-        $bal = (float) $u->fetchColumn();
+        $bal      = (float)$u->fetchColumn();
         $maxStake = max_stake($bal);
-        if ($stake <= 0)        throw new RuntimeException('Einsatz muss > 0 sein.');
-        if ($stake > $bal)      throw new RuntimeException('Nicht genug Guthaben.');
-        if ($stake > $maxStake) throw new RuntimeException('Maximal-Einsatz: ' . $maxStake);
+
+        if ($maxStake <= 0)        throw new RuntimeException('Du bist pleite. Frag den Admin nach Geld.');
+        if ($stake < STAKE_LOWER_LIMIT) throw new RuntimeException('Mindesteinsatz ist '.STAKE_LOWER_LIMIT.'.');
+        if ($stake > $maxStake)    throw new RuntimeException('Maximal-Einsatz: '.number_format($maxStake,2,'.',''));
 
         $pdo->prepare('UPDATE users SET money_balance = money_balance - ? WHERE id = ?')
             ->execute([$stake, $user['id']]);
         if ($groupId) {
-            $pdo->prepare('UPDATE group_members SET money = money - ? WHERE group_id = ? AND user_id = ?')
+            $pdo->prepare('UPDATE group_members SET money = money - ? WHERE group_id=? AND user_id=?')
                 ->execute([$stake, $groupId, $user['id']]);
         }
-    } else {
-        $stake = 0;
+
+        $tipH = null; $tipA = null;
     }
 
-    // Upsert: vorhandenen Tipp aktualisieren
+    // Upsert (existierenden Tipp aktualisieren)
     $find = $pdo->prepare(
         'SELECT id FROM bets WHERE user_id=? AND match_id=? AND mode=? AND ' .
         ($groupId === null ? 'group_id IS NULL' : 'group_id=?')
@@ -70,14 +76,15 @@ try {
     $existingId = $find->fetchColumn();
 
     if ($existingId) {
-        $pdo->prepare('UPDATE bets SET tip_home=?, tip_away=?, stake=? WHERE id=?')
-            ->execute([$tipH, $tipA, $stake, $existingId]);
+        $pdo->prepare(
+            'UPDATE bets SET tip_home=?, tip_away=?, tip_winner=?, stake=? WHERE id=?'
+        )->execute([$tipH, $tipA, $tipWinner, $stake, $existingId]);
         $betId = (int)$existingId;
     } else {
         $pdo->prepare(
-            'INSERT INTO bets (user_id,match_id,group_id,mode,tip_home,tip_away,stake)
-             VALUES (?,?,?,?,?,?,?)'
-        )->execute([$user['id'], $matchId, $groupId, $mode, $tipH, $tipA, $stake]);
+            'INSERT INTO bets (user_id,match_id,group_id,mode,tip_home,tip_away,tip_winner,stake)
+             VALUES (?,?,?,?,?,?,?,?)'
+        )->execute([$user['id'], $matchId, $groupId, $mode, $tipH, $tipA, $tipWinner, $stake]);
         $betId = (int)$pdo->lastInsertId();
     }
 

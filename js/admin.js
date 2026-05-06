@@ -1,6 +1,6 @@
 (async () => {
-  const post = (b) => Tippspiel.post('/tippspiel/api/admin.php', b);
-  const get  = (a) => Tippspiel.get('/tippspiel/api/admin.php?action=' + a);
+  const post = (b) => Tippspiel.post('/Tippspiel/api/admin.php', b);
+  const get  = (a) => Tippspiel.get('/Tippspiel/api/admin.php?action=' + a);
 
   // ---- stats ----
   const stats = await get('stats');
@@ -10,9 +10,8 @@
     <div class="card" style="margin:0"><strong>Tipps</strong><div style="font-size:24px">${stats.bets}</div></div>
     <div class="card" style="margin:0"><strong>Gruppen</strong><div style="font-size:24px">${stats.groups}</div></div>`;
 
-  // ---- shared dropdowns: Sportarten ----
   async function loadSports() {
-    const sports = await Tippspiel.get('/tippspiel/api/sports.php');
+    const sports = await Tippspiel.get('/Tippspiel/api/sports.php');
     ['lg-sport','tm-sport','m-sport'].forEach(id => {
       const sel = document.getElementById(id);
       sel.innerHTML = '<option value="">Sportart</option>';
@@ -21,7 +20,6 @@
   }
   loadSports();
 
-  // ---- Sportart anlegen ----
   document.getElementById('sp-add').onclick = async () => {
     try {
       await post({ action:'add_sport',
@@ -32,7 +30,6 @@
     } catch(e){ Tippspiel.toast(e.message,'error'); }
   };
 
-  // ---- Liga anlegen ----
   document.getElementById('lg-add').onclick = async () => {
     try {
       await post({ action:'add_league',
@@ -43,7 +40,6 @@
     } catch(e){ Tippspiel.toast(e.message,'error'); }
   };
 
-  // ---- Team anlegen ----
   document.getElementById('tm-add').onclick = async () => {
     try {
       await post({ action:'add_team',
@@ -54,7 +50,6 @@
     } catch(e){ Tippspiel.toast(e.message,'error'); }
   };
 
-  // ---- Spiel anlegen ----
   const mSport  = document.getElementById('m-sport');
   const mLeague = document.getElementById('m-league');
   const mHome   = document.getElementById('m-home');
@@ -66,15 +61,10 @@
     mAway.innerHTML = '<option value="">Auswaertsteam</option>';
     mLeague.disabled = mHome.disabled = mAway.disabled = !mSport.value;
     if (!mSport.value) return;
-    const ls = await Tippspiel.get('/tippspiel/api/leagues.php?sport_id=' + mSport.value);
+    const ls = await Tippspiel.get('/Tippspiel/api/leagues.php?sport_id=' + mSport.value);
     ls.forEach(l => mLeague.add(new Option(l.name, l.id)));
 
-    // Teams sind sportbezogen: alle Teams der Sportart laden
-    // (Endpoint via admin.list_teams gibts noch nicht -> einfach SQL via leagues misuse)
-    const teamsRes = await fetch('/tippspiel/api/admin.php?action=list_teams&sport_id=' + mSport.value, { credentials: 'same-origin' })
-      .catch(()=>null);
-    let teams = teamsRes && teamsRes.ok ? await teamsRes.json() : [];
-    // Fallback: ueber SQL via admin (siehe unten)
+    const teams = await Tippspiel.get('/Tippspiel/api/admin.php?action=list_teams&sport_id=' + mSport.value);
     teams.forEach(t => {
       mHome.add(new Option(t.name, t.id));
       mAway.add(new Option(t.name, t.id));
@@ -92,7 +82,6 @@
     } catch(e){ Tippspiel.toast(e.message,'error'); }
   };
 
-  // ---- Spiele auflisten ----
   async function refreshMatches() {
     const list = await get('list_matches');
     document.getElementById('m-list').innerHTML = list.map(m => `
@@ -126,19 +115,39 @@
   }
   refreshMatches();
 
-  // ---- User-Liste ----
   async function refreshUsers() {
     const us = await get('list_users');
-    document.getElementById('u-list').innerHTML = us.map(u => `
+    document.getElementById('u-list').innerHTML = us.map(u => {
+      const broke = Number(u.money_balance) < 10;
+      return `
       <tr>
         <td>${u.id}</td>
         <td>${u.first_name} ${u.last_name} (@${u.username})</td>
         <td><span class="badge">${u.role}</span></td>
         <td>${u.points_total}</td>
-        <td>${Number(u.money_balance).toFixed(2)}</td>
-        <td>${u.role==='admin' ? '' :
-              `<button class="btn danger small" data-del="${u.id}">Loeschen</button>`}</td>
-      </tr>`).join('');
+        <td>${Number(u.money_balance).toFixed(2)} ${broke ? '<span class="badge" style="background:#ef4d4d;color:#fff">pleite</span>' : ''}</td>
+        <td>
+          <input type="number" min="1" step="1" placeholder="Betrag"
+                 id="gift-${u.id}" style="width:70px;background:var(--surface-2);color:var(--text);border:1px solid #2c3447;border-radius:6px;padding:4px">
+          <button class="btn small primary" data-gift="${u.id}">Geld geben</button>
+          ${u.role==='admin' ? '' : `<button class="btn danger small" data-del="${u.id}">Loeschen</button>`}
+        </td>
+      </tr>`;
+    }).join('');
+
+    document.querySelectorAll('[data-gift]').forEach(b => {
+      b.onclick = async () => {
+        const id  = b.dataset.gift;
+        const amt = Number(document.getElementById('gift-'+id).value);
+        if (!amt || amt <= 0) { Tippspiel.toast('Bitte Betrag eingeben','error'); return; }
+        try {
+          await post({ action:'gift_money', user_id:id, amount:amt });
+          Tippspiel.toast('+'+amt.toFixed(2)+' verschenkt', 'ok');
+          refreshUsers();
+        } catch(e){ Tippspiel.toast(e.message,'error'); }
+      };
+    });
+
     document.querySelectorAll('[data-del]').forEach(b => {
       b.onclick = async () => {
         if (!confirm('User wirklich loeschen?')) return;

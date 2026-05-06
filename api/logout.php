@@ -1,5 +1,5 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 logout();
-header('Location: /tippspiel/index.php');
+header('Location: /Tippspiel/index.php');
 exit;

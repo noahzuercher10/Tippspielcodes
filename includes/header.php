@@ -2,6 +2,9 @@
 require_once __DIR__ . '/auth.php';
 $user = require_login();
 $active = $active ?? '';
+$bg = $user['background_image']
+    ? '/Tippspiel/' . htmlspecialchars($user['background_image'])
+    : null;
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -9,11 +12,18 @@ $active = $active ?? '';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tippspiel</title>
-<link rel="stylesheet" href="/tippspiel/css/style.css">
+<link rel="stylesheet" href="/Tippspiel/css/style.css">
+<?php if ($bg): ?>
+<style>
+  body { background-image: linear-gradient(rgba(14,17,22,.85), rgba(14,17,22,.92)),
+                            url("<?= $bg ?>");
+         background-size: cover; background-attachment: fixed; background-position: center; }
+</style>
+<?php endif; ?>
 </head>
 <body>
 <header class="topbar">
-  <a class="profile-link" href="/tippspiel/pages/profile.php" title="Profil">
+  <a class="profile-link" href="/Tippspiel/pages/profile.php" title="Profil">
     <span class="avatar"><?= htmlspecialchars(initials($user)) ?></span>
     <span class="username"><?= htmlspecialchars($user['username']) ?></span>
   </a>
@@ -30,13 +40,13 @@ $active = $active ?? '';
 </header>
 
 <nav class="mainnav">
-  <a href="/tippspiel/pages/groups.php"      class="<?= $active==='groups'?'active':'' ?>">Gruppen</a>
-  <a href="/tippspiel/pages/leaderboard.php" class="<?= $active==='leaderboard'?'active':'' ?>">Rangliste</a>
-  <a href="/tippspiel/pages/sports.php"      class="<?= $active==='sports'?'active':'' ?>">Sportarten</a>
+  <a href="/Tippspiel/pages/groups.php"      class="<?= $active==='groups'      ? 'active' : '' ?>">Gruppen</a>
+  <a href="/Tippspiel/pages/leaderboard.php" class="<?= $active==='leaderboard' ? 'active' : '' ?>">Rangliste</a>
+  <a href="/Tippspiel/pages/sports.php"      class="<?= $active==='sports'      ? 'active' : '' ?>">Sportarten</a>
   <?php if ($user['role'] === 'admin'): ?>
-    <a href="/tippspiel/pages/admin.php"     class="<?= $active==='admin'?'active':'' ?>">Admin</a>
+    <a href="/Tippspiel/pages/admin.php"     class="<?= $active==='admin'       ? 'active' : '' ?>">Admin</a>
   <?php endif; ?>
-  <a href="/tippspiel/api/logout.php" class="logout">Logout</a>
+  <a href="/Tippspiel/api/logout.php" class="logout">Logout</a>
 </nav>
 
 <main class="container">
