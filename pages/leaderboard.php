@@ -6,7 +6,6 @@ require_once __DIR__ . '/../includes/header.php';
   <h2>Rangliste</h2>
   <p style="color:var(--muted)">Wechsle den Modus oben rechts, um zwischen Punkte- und Geld-Rangliste zu wechseln.</p>
 
-  <!-- Gruppen-Tabs (von rechts nach links) -->
   <div class="lb-tabs" id="lb-tabs"></div>
 
   <h3 id="lb-title" style="margin:16px 0 8px">Globale Rangliste</h3>
@@ -23,11 +22,9 @@ require_once __DIR__ . '/../includes/header.php';
   const scoreTh  = document.getElementById('score-th');
   const bodyEl   = document.getElementById('lb-body');
 
-  let activeTab = 'global'; // 'global' oder Gruppen-ID
+  let activeTab = 'global';
 
   function buildTabs(groups) {
-    // Reihenfolge im DOM = "Global" links, dann Gruppen rechts daneben.
-    // CSS dreht die Anzeige: rechts->links via flex-direction: row-reverse.
     let html = `<button class="lb-tab ${activeTab==='global'?'active':''}" data-tab="global">Global</button>`;
     groups.forEach(g => {
       html += `<button class="lb-tab ${activeTab==g.id?'active':''}" data-tab="${g.id}">
@@ -45,22 +42,21 @@ require_once __DIR__ . '/../includes/header.php';
     const mode = Tippspiel.getMode();
     scoreTh.textContent = mode === 'money' ? 'Guthaben' : 'Punkte';
 
-    const groups = await Tippspiel.get('/tipsspiel/api/groups.php');
-    // Gruppen so filtern, dass Modus passt (Gruppe hat festen Modus)
+    const groups = await Tippspiel.get('/Tippspiel/api/groups.php');
     const myGroups = groups.filter(g => g.mode === mode);
     buildTabs(myGroups);
 
     let rows;
     if (activeTab === 'global') {
       titleEl.textContent = 'Globale Rangliste (' + (mode==='money'?'Geld':'Punkte') + ')';
-      rows = await Tippspiel.get('/tipsspiel/api/leaderboard.php?mode=' + mode);
+      rows = await Tippspiel.get('/Tippspiel/api/leaderboard.php?mode=' + mode);
     } else {
-      const detail = await Tippspiel.get('/tipsspiel/api/groups.php?id=' + activeTab);
+      const detail = await Tippspiel.get('/Tippspiel/api/groups.php?id=' + activeTab);
       titleEl.textContent = 'Gruppe: ' + detail.name;
       rows = detail.members.map(m => ({
-        username:  m.username,
-        first_name:m.first_name,
-        last_name: m.last_name,
+        username:   m.username,
+        first_name: m.first_name,
+        last_name:  m.last_name,
         score: mode === 'money' ? Number(m.money) : Number(m.points),
       }));
     }
@@ -73,7 +69,6 @@ require_once __DIR__ . '/../includes/header.php';
       </tr>`).join('');
   }
 
-  // Beim Modus-Wechsel: Gruppen-Tab wieder zuruecksetzen
   document.addEventListener('mode-changed', () => { activeTab = 'global'; load(); });
   load();
 })();

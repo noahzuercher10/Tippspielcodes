@@ -56,5 +56,5 @@ require_once __DIR__ . '/../includes/header.php';
   </form>
 </dialog>
 
-<script src="/tipsspiel/js/groups.js"></script>
+<script src="/Tippspiel/js/groups.js"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
