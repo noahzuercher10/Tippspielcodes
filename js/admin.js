@@ -12,7 +12,7 @@
 
   async function loadSports() {
     const sports = await Tippspiel.get('/Tippspiel/api/sports.php');
-    ['lg-sport','tm-sport','m-sport'].forEach(id => {
+    ['lg-sport','sync-sport'].forEach(id => {
       const sel = document.getElementById(id);
       sel.innerHTML = '<option value="">Sportart</option>';
       sports.forEach(s => sel.add(new Option(s.name, s.id)));
@@ -23,8 +23,9 @@
   document.getElementById('sp-add').onclick = async () => {
     try {
       await post({ action:'add_sport',
-        name: document.getElementById('sp-name').value.trim(),
-        type: document.getElementById('sp-type').value });
+        name:      document.getElementById('sp-name').value.trim(),
+        type:      document.getElementById('sp-type').value,
+        api_class: document.getElementById('sp-class').value.trim() || 'FootballSport' });
       Tippspiel.toast('Sportart hinzugefuegt','ok');
       loadSports();
     } catch(e){ Tippspiel.toast(e.message,'error'); }
@@ -35,51 +36,52 @@
       await post({ action:'add_league',
         sport_id: document.getElementById('lg-sport').value,
         name:     document.getElementById('lg-name').value.trim(),
-        season:   document.getElementById('lg-season').value.trim() });
+        season:   document.getElementById('lg-season').value.trim(),
+        api_id:   document.getElementById('lg-apiid').value.trim() });
       Tippspiel.toast('Liga hinzugefuegt','ok');
     } catch(e){ Tippspiel.toast(e.message,'error'); }
   };
 
-  document.getElementById('tm-add').onclick = async () => {
-    try {
-      await post({ action:'add_team',
-        sport_id:   document.getElementById('tm-sport').value,
-        name:       document.getElementById('tm-name').value.trim(),
-        short_name: document.getElementById('tm-short').value.trim() });
-      Tippspiel.toast('Team hinzugefuegt','ok');
-    } catch(e){ Tippspiel.toast(e.message,'error'); }
-  };
-
-  const mSport  = document.getElementById('m-sport');
-  const mLeague = document.getElementById('m-league');
-  const mHome   = document.getElementById('m-home');
-  const mAway   = document.getElementById('m-away');
-
-  mSport.addEventListener('change', async () => {
-    mLeague.innerHTML = '<option value="">Liga / Turnier</option>';
-    mHome.innerHTML = '<option value="">Heimteam</option>';
-    mAway.innerHTML = '<option value="">Auswaertsteam</option>';
-    mLeague.disabled = mHome.disabled = mAway.disabled = !mSport.value;
-    if (!mSport.value) return;
-    const ls = await Tippspiel.get('/Tippspiel/api/leagues.php?sport_id=' + mSport.value);
-    ls.forEach(l => mLeague.add(new Option(l.name, l.id)));
-
-    const teams = await Tippspiel.get('/Tippspiel/api/admin.php?action=list_teams&sport_id=' + mSport.value);
-    teams.forEach(t => {
-      mHome.add(new Option(t.name, t.id));
-      mAway.add(new Option(t.name, t.id));
-    });
+  // ---- Sync-Bereich ----
+  const syncSport  = document.getElementById('sync-sport');
+  const syncLeague = document.getElementById('sync-league');
+  const syncReport = document.getElementById('sync-report');
+  syncSport.addEventListener('change', async () => {
+    syncLeague.innerHTML = '<option value="">Liga wählen</option>';
+    syncLeague.disabled = !syncSport.value;
+    if (!syncSport.value) return;
+    const ls = await Tippspiel.get('/Tippspiel/api/leagues.php?sport_id=' + syncSport.value);
+    ls.forEach(l => syncLeague.add(new Option(l.season ? `${l.name} ${l.season}` : l.name, l.id)));
   });
 
-  document.getElementById('m-add').onclick = async () => {
+  document.getElementById('sync-go').onclick = async () => {
+    if (!syncLeague.value) { Tippspiel.toast('Bitte Liga wählen','error'); return; }
+    syncReport.textContent = 'Lade aus TheSportsDB...';
     try {
-      await post({ action:'add_match',
-        league_id:    mLeague.value,
-        home_team_id: mHome.value,
-        away_team_id: mAway.value,
-        match_datetime: document.getElementById('m-dt').value.replace('T',' ') + ':00' });
-      Tippspiel.toast('Spiel angelegt','ok'); refreshMatches();
-    } catch(e){ Tippspiel.toast(e.message,'error'); }
+      const r = await post({ action:'sync_league', league_id: syncLeague.value });
+      const s = r.sync;
+      const msg = `Sync ok (${s.source||'-'}): ${s.seen||0} Events, ${s.imported||0} neu, ${s.updated||0} ausgewertet`;
+      Tippspiel.toast(msg, 'ok');
+      syncReport.textContent = msg + (s.last_error ? ' - Hinweis: '+s.last_error : '');
+      refreshMatches();
+    } catch(e){ Tippspiel.toast(e.message,'error'); syncReport.textContent='FEHLER: '+e.message; }
+  };
+
+  document.getElementById('sync-all').onclick = async () => {
+    if (!confirm('ALLE Ligen synchronisieren? Das kann ein paar Sekunden dauern.')) return;
+    syncReport.textContent = 'Synchronisiere alle Ligen...';
+    try {
+      const r = await post({ action:'sync_all' });
+      let total = 0;
+      const lines = [];
+      for (const [lid, info] of Object.entries(r.report)) {
+        if (info.error) { lines.push(`Liga ${lid}: FEHLER ${info.error}`); }
+        else { lines.push(`Liga ${lid}: ${info.seen} Events, ${info.imported} neu`); total += (info.imported||0); }
+      }
+      syncReport.innerHTML = `<b>Insgesamt ${total} neue Spiele gespeichert.</b><br>` + lines.join('<br>');
+      Tippspiel.toast(`Alle Ligen synchronisiert: ${total} neue Spiele`, 'ok');
+      refreshMatches();
+    } catch(e){ Tippspiel.toast(e.message,'error'); syncReport.textContent='FEHLER: '+e.message; }
   };
 
   async function refreshMatches() {
@@ -130,7 +132,7 @@
           <input type="number" min="1" step="1" placeholder="Betrag"
                  id="gift-${u.id}" style="width:70px;background:var(--surface-2);color:var(--text);border:1px solid #2c3447;border-radius:6px;padding:4px">
           <button class="btn small primary" data-gift="${u.id}">Geld geben</button>
-          ${u.role==='admin' ? '' : `<button class="btn danger small" data-del="${u.id}">Loeschen</button>`}
+          ${u.role==='admin' ? '' : `<button class="btn danger small" data-del="${u.id}">Löschen</button>`}
         </td>
       </tr>`;
     }).join('');
@@ -150,10 +152,10 @@
 
     document.querySelectorAll('[data-del]').forEach(b => {
       b.onclick = async () => {
-        if (!confirm('User wirklich loeschen?')) return;
+        if (!confirm('User wirklich löschen?')) return;
         try {
           await post({ action:'delete_user', user_id: b.dataset.del });
-          Tippspiel.toast('Geloescht','ok'); refreshUsers();
+          Tippspiel.toast('Gelöscht','ok'); refreshUsers();
         } catch(e){ Tippspiel.toast(e.message,'error'); }
       };
     });

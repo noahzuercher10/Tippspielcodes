@@ -19,7 +19,18 @@
   const progressBar   = document.getElementById('tip-progress-bar');
   const progressLabel = document.getElementById('tip-progress-label');
 
-  const sports = await Tippspiel.get('/Tippspiel/api/sports.php');
+  let sports = [];
+  try {
+    sports = await Tippspiel.get('/Tippspiel/api/sports.php');
+  } catch (e) {
+    console.error('sports.php Fehler:', e);
+    Tippspiel.toast('API-Fehler beim Laden der Sportarten: ' + e.message, 'error');
+    return;
+  }
+  if (!Array.isArray(sports) || sports.length === 0) {
+    Tippspiel.toast('Keine Sportarten in der DB. Bitte SQL neu importieren.', 'error');
+    return;
+  }
   sports.forEach(s => sportSel.add(new Option(s.name, s.id)));
 
   const myGroups = await Tippspiel.get('/Tippspiel/api/groups.php');
@@ -55,7 +66,7 @@
     leagueWrap.style.display = 'none';
     dayWrap.style.display    = 'none';
     groupWrap.style.display  = 'none';
-    leagueSel.innerHTML = '<option value="">-- Liga / Turnier waehlen --</option>';
+    leagueSel.innerHTML = '<option value="">-- Liga / Turnier wählen --</option>';
     matchesEl.innerHTML = '';
     progressBar.style.width = '0%'; progressLabel.textContent = '';
     if (!sportSel.value) return;
@@ -135,10 +146,10 @@
             <div class="tname">${m.home_name}</div>
             <div class="winner-row">
               <select class="winner" ${closed?'disabled':''}>
-                <option value="">-- Sieger waehlen --</option>
+                <option value="">-- Sieger wählen --</option>
                 <option value="home" ${sel('home')}>Heimsieg (${m.home_short || m.home_name})</option>
                 <option value="draw" ${sel('draw')}>Unentschieden</option>
-                <option value="away" ${sel('away')}>Auswaertssieg (${m.away_short || m.away_name})</option>
+                <option value="away" ${sel('away')}>Auswärtssieg (${m.away_short || m.away_name})</option>
               </select>
               <input type="number" step="0.01" min="10" max="500"
                      class="stake" placeholder="Einsatz (10-500)" value="${stake}" ${closed?'disabled':''}>
@@ -166,7 +177,7 @@
       const tipH = Number(row.querySelector('.tipH').value);
       const tipA = Number(row.querySelector('.tipA').value);
       if (Number.isNaN(tipH) || Number.isNaN(tipA) || tipH<0 || tipA<0) {
-        Tippspiel.toast('Bitte Heim- und Auswaertstore eingeben', 'error'); return;
+        Tippspiel.toast('Bitte Heim- und Auswärtstore eingeben', 'error'); return;
       }
       body = { match_id:Number(row.dataset.id), mode, tip_home:tipH, tip_away:tipA,
                group_id: groupSel.value || null };

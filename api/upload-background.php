@@ -55,7 +55,7 @@ if (!move_uploaded_file($f['tmp_name'], $path)) {
     exit;
 }
 
-// alten Hintergrund loeschen (falls vorhanden)
+// alten Hintergrund löschen (falls vorhanden)
 $old = $pdo->prepare('SELECT background_image FROM users WHERE id = ?');
 $old->execute([$user['id']]);
 $oldFile = $old->fetchColumn();

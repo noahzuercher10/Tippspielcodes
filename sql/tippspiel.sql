@@ -1,6 +1,10 @@
 -- ===========================================================
 -- Tippspiel-App (ZbW Projekt 2608)
 -- Datenbank-Schema fuer MySQL / MariaDB
+--
+-- Hinweis: Es gibt KEINE teams-Tabelle mehr. Heim-/Auswaerts-
+-- Mannschaften werden direkt aus der TheSportsDB-API gezogen
+-- und nur als Strings in matches gecacht.
 -- ===========================================================
 
 DROP DATABASE IF EXISTS tippspiel;
@@ -25,54 +29,47 @@ CREATE TABLE users (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------
--- Sportarten (laut Doku, mit API-Bindung-tauglichen Sportarten)
+-- Sportarten (jede Sportart bekommt eine PHP-Klasse)
 -- -----------------------------------------------------------
 CREATE TABLE sports (
-    id     INT AUTO_INCREMENT PRIMARY KEY,
-    name   VARCHAR(60) NOT NULL UNIQUE,
-    type   ENUM('team','single') NOT NULL DEFAULT 'team',
-    icon   VARCHAR(80) DEFAULT NULL
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(60) NOT NULL UNIQUE,
+    type       ENUM('team','single') NOT NULL DEFAULT 'team',
+    api_class  VARCHAR(60) NOT NULL,           -- Name der PHP-Klasse (Vererbung)
+    icon       VARCHAR(80) DEFAULT NULL
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------
--- Ligen / Wettbewerbe
+-- Ligen / Wettbewerbe (api_id = TheSportsDB-Liga-ID)
 -- -----------------------------------------------------------
 CREATE TABLE leagues (
-    id        INT AUTO_INCREMENT PRIMARY KEY,
-    sport_id  INT NOT NULL,
-    name      VARCHAR(120) NOT NULL,
-    season    VARCHAR(20)  DEFAULT NULL,
-    api_id    VARCHAR(40)  DEFAULT NULL, -- ID der externen API (z.B. TheSportsDB)
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    sport_id   INT NOT NULL,
+    name       VARCHAR(120) NOT NULL,
+    season     VARCHAR(20)  DEFAULT NULL,
+    api_id     VARCHAR(40)  DEFAULT NULL,
+    last_sync  DATETIME     DEFAULT NULL,
     FOREIGN KEY (sport_id) REFERENCES sports(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------
--- Teams
--- -----------------------------------------------------------
-CREATE TABLE teams (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    sport_id    INT NOT NULL,
-    name        VARCHAR(120) NOT NULL,
-    short_name  VARCHAR(10)  DEFAULT NULL,
-    FOREIGN KEY (sport_id) REFERENCES sports(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------------
--- Spiele
+-- Spiele (Cache aus der API, KEINE Team-Foreign-Keys mehr)
 -- -----------------------------------------------------------
 CREATE TABLE matches (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     league_id       INT NOT NULL,
-    home_team_id    INT NOT NULL,
-    away_team_id    INT NOT NULL,
+    home_name       VARCHAR(120) NOT NULL,
+    away_name       VARCHAR(120) NOT NULL,
+    home_short      VARCHAR(20)  DEFAULT NULL,
+    away_short      VARCHAR(20)  DEFAULT NULL,
     match_datetime  DATETIME NOT NULL,
     home_score      INT DEFAULT NULL,
     away_score      INT DEFAULT NULL,
     status          ENUM('upcoming','finished','cancelled') NOT NULL DEFAULT 'upcoming',
     api_event_id    VARCHAR(40) DEFAULT NULL,
-    FOREIGN KEY (league_id)    REFERENCES leagues(id) ON DELETE CASCADE,
-    FOREIGN KEY (home_team_id) REFERENCES teams(id),
-    FOREIGN KEY (away_team_id) REFERENCES teams(id)
+    UNIQUE KEY uniq_api_event (api_event_id),
+    INDEX idx_league_date (league_id, match_datetime),
+    FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------
@@ -104,9 +101,6 @@ CREATE TABLE group_members (
 -- -----------------------------------------------------------
 -- Tipps
 -- -----------------------------------------------------------
--- Punktemodus: tip_home / tip_away (exaktes Resultat)
--- Geldmodus  : tip_winner ('home','draw','away'), nur Sieger
--- -----------------------------------------------------------
 CREATE TABLE bets (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     user_id         INT NOT NULL,
@@ -130,107 +124,45 @@ CREATE TABLE bets (
 -- -----------------------------------------------------------
 -- BEISPIELDATEN
 -- Default-Passwort fuer alle Beispiel-Accounts: admin123
--- (Hash: $2y$10$wH5x3eYpZbQeV8oAIQk2xeyZk8zvDfEJ5DkDlFzj1fE6qw0oZGq2u)
 -- -----------------------------------------------------------
 INSERT INTO users (username,email,password_hash,first_name,last_name,role,money_balance) VALUES
  ('admin','admin@tippspiel.local','$2y$10$wH5x3eYpZbQeV8oAIQk2xeyZk8zvDfEJ5DkDlFzj1fE6qw0oZGq2u','Admin','User','admin', 2500.00),
  ('noah', 'noah@example.com',     '$2y$10$wH5x3eYpZbQeV8oAIQk2xeyZk8zvDfEJ5DkDlFzj1fE6qw0oZGq2u','Noah','Zuercher','user', 2500.00),
  ('sinan','sinan@example.com',    '$2y$10$wH5x3eYpZbQeV8oAIQk2xeyZk8zvDfEJ5DkDlFzj1fE6qw0oZGq2u','Sinan','Boss','user',     2500.00);
 
+-- Sportarten (api_class = PHP-Klassenname unter includes/sports/)
+INSERT INTO sports (name,type,api_class) VALUES
+ ('Fussball',   'team',   'FootballSport'),
+ ('Eishockey',  'team',   'IceHockeySport'),
+ ('Basketball', 'team',   'BasketballSport'),
+ ('Tennis',     'single', 'TennisSport'),
+ ('Formel 1',   'single', 'Formula1Sport');
 
--- Sportarten laut Doku (API-bindefaehig)
-INSERT INTO sports (name,type) VALUES
- ('Fussball','team'),
- ('Eishockey','team'),
- ('Basketball','team'),
- ('Tennis','single'),
- ('Formel 1','single');
-
--- Ligen/Turniere je Sportart
+-- Ligen mit echten TheSportsDB-Liga-IDs
 INSERT INTO leagues (sport_id,name,season,api_id) VALUES
- (1,'Schweizer Super League','2025/26','4344'),
- (1,'Bundesliga','2025/26','4331'),
- (1,'Premier League','2025/26','4328'),
- (1,'La Liga','2025/26','4335'),
- (1,'WM 2026','2026','4429'),
- (2,'National League','2025/26','4380'),
- (2,'NHL','2025/26','4380'),
- (3,'NBA','2025/26','4387'),
- (3,'EuroLeague','2025/26','4408'),
- (4,'ATP Tour','2026',NULL),
- (4,'Grand Slam','2026',NULL),
- (5,'Formel 1 Saison','2026','4370');
-
--- Teams
-INSERT INTO teams (sport_id,name,short_name) VALUES
- -- Fussball Schweiz
- (1,'FC Basel','BAS'),(1,'FC Zuerich','FCZ'),(1,'BSC Young Boys','YB'),(1,'FC St. Gallen','FCSG'),
- (1,'FC Luzern','FCL'),(1,'Servette FC','SER'),
- -- Bundesliga
- (1,'Bayern Muenchen','FCB'),(1,'Borussia Dortmund','BVB'),(1,'RB Leipzig','RBL'),(1,'Bayer Leverkusen','B04'),
- -- Premier League
- (1,'Manchester City','MCI'),(1,'Liverpool','LIV'),(1,'Arsenal','ARS'),(1,'Chelsea','CHE'),
- -- La Liga
- (1,'Real Madrid','RMA'),(1,'FC Barcelona','BAR'),(1,'Atletico Madrid','ATM'),
- -- WM
- (1,'Schweiz','SUI'),(1,'Deutschland','GER'),(1,'Italien','ITA'),(1,'Frankreich','FRA'),
- (1,'Brasilien','BRA'),(1,'Argentinien','ARG'),(1,'England','ENG'),(1,'Spanien','ESP'),
+ -- Fussball
+ (1,'Schweizer Super League','2025-2026','4344'),
+ (1,'Bundesliga',             '2025-2026','4331'),
+ (1,'Premier League',         '2025-2026','4328'),
+ (1,'La Liga',                '2025-2026','4335'),
+ (1,'Serie A',                '2025-2026','4332'),
+ (1,'Champions League',       '2025-2026','4480'),
  -- Eishockey
- (2,'SC Bern','SCB'),(2,'ZSC Lions','ZSC'),(2,'EV Zug','EVZ'),(2,'HC Davos','HCD'),
- (2,'Toronto Maple Leafs','TOR'),(2,'Boston Bruins','BOS'),(2,'Edmonton Oilers','EDM'),
+ (2,'NHL',                    '2025-2026','4380'),
+ (2,'Schweizer National League','2025-2026','4423'),
  -- Basketball
- (3,'LA Lakers','LAL'),(3,'Boston Celtics','BOS'),(3,'Golden State Warriors','GSW'),(3,'Miami Heat','MIA'),
- (3,'Real Madrid (BB)','RMA'),(3,'FC Barcelona (BB)','BAR'),
- -- Tennis (Einzel)
- (4,'Roger Federer','FED'),(4,'Rafael Nadal','NAD'),(4,'Novak Djokovic','DJO'),(4,'Carlos Alcaraz','ALC'),
- (4,'Jannik Sinner','SIN'),(4,'Stefanos Tsitsipas','TSI'),
+ (3,'NBA',                    '2025-2026','4387'),
+ (3,'EuroLeague',             '2025-2026','4408'),
+ -- Tennis (ATP-Tour als Liga)
+ (4,'ATP Tour',               '2026','4464'),
  -- Formel 1
- (5,'Max Verstappen','VER'),(5,'Lewis Hamilton','HAM'),(5,'Charles Leclerc','LEC'),(5,'Lando Norris','NOR'),
- (5,'George Russell','RUS'),(5,'Carlos Sainz','SAI');
+ (5,'Formel 1 Saison',        '2026','4370');
 
--- Spiele (nur passend zur jeweiligen Sportart/Liga)
-INSERT INTO matches (league_id,home_team_id,away_team_id,match_datetime) VALUES
- -- Super League
- (1, 1, 2, '2026-05-10 18:00:00'),
- (1, 3, 4, '2026-05-11 20:30:00'),
- (1, 1, 3, '2026-05-15 18:00:00'),
- (1, 5, 6, '2026-05-17 16:00:00'),
- -- Bundesliga
- (2, 7, 8, '2026-05-09 15:30:00'),
- (2, 9,10, '2026-05-10 18:30:00'),
- -- Premier League
- (3,11,12, '2026-05-12 21:00:00'),
- (3,13,14, '2026-05-13 21:00:00'),
- -- La Liga
- (4,15,16, '2026-05-14 22:00:00'),
- (4,17,15, '2026-05-19 22:00:00'),
- -- WM 2026
- (5,18,19, '2026-06-12 21:00:00'),
- (5,20,21, '2026-06-13 21:00:00'),
- (5,22,23, '2026-06-14 21:00:00'),
- (5,24,25, '2026-06-15 21:00:00'),
- -- National League (Eishockey CH) - Teams 26..29
- (6,26,27, '2026-05-12 19:45:00'),
- (6,28,29, '2026-05-13 19:45:00'),
- -- NHL - Teams 30..32
- (7,30,31, '2026-05-14 02:00:00'),
- (7,32,30, '2026-05-15 02:00:00'),
- -- NBA - Teams 33..36
- (8,33,34, '2026-05-12 03:00:00'),
- (8,35,36, '2026-05-13 03:00:00'),
- -- EuroLeague - Teams 37..38
- (9,37,38, '2026-05-15 20:00:00'),
- -- ATP Tour - Teams 39..42
- (10,39,40, '2026-05-11 14:00:00'),
- (10,41,42, '2026-05-12 14:00:00'),
- -- Grand Slam - Teams 43..44
- (11,43,44, '2026-05-25 14:00:00'),
- -- F1 - "Teams" sind Fahrer; Heim = Sieger-Slot
- (12,45,46, '2026-05-10 15:00:00'),
- (12,47,48, '2026-05-24 15:00:00'),
- (12,49,50, '2026-06-07 15:00:00');
+-- KEINE matches/teams Beispieldaten mehr!
+-- Spiele werden live aus TheSportsDB geholt, sobald eine Liga
+-- ausgewaehlt wird.
 
--- Beispielgruppen
+-- Beispielgruppen (Liga 1 = Super League)
 INSERT INTO groups_t (name,join_code,mode,league_id,admin_id) VALUES
  ('Big Sinan Crew','SINAN26','points', 1, 2),
  ('Cash Kings',    'MONEY01','money',  1, 3);

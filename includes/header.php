@@ -13,6 +13,8 @@ $bg = $user['background_image']
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tippspiel</title>
 <link rel="stylesheet" href="/Tippspiel/css/style.css">
+<!-- app.js MUSS vor allen Page-Scripts laden, sonst ist Tippspiel undefiniert -->
+<script src="/Tippspiel/js/app.js?v=2"></script>
 <?php if ($bg): ?>
 <style>
   body { background-image: linear-gradient(rgba(14,17,22,.85), rgba(14,17,22,.92)),
@@ -34,7 +36,7 @@ $bg = $user['background_image']
     <label for="mode">Modus</label>
     <select id="mode">
       <option value="points">Punkte</option>
-      <option value="money">Imaginaeres Geld</option>
+      <option value="money">Imaginäres Geld</option>
     </select>
   </div>
 </header>

@@ -7,14 +7,14 @@ require_once __DIR__ . '/../config/db.php';
 /** Geld-Konstanten gemaess Spec. */
 const MONEY_START_BALANCE = 2500.00;  // Startkapital
 const STAKE_UPPER_LIMIT   = 500.00;   // max. Einsatz pro Spiel
-const STAKE_LOWER_LIMIT   = 10.00;    // min. moeglicher Einsatz
+const STAKE_LOWER_LIMIT   = 10.00;    // min. möglicher Einsatz
 
 /**
  * Punkteberechnung fuer den Punktemodus (laut Doku):
  *  - Genau richtiger Tipp                = 10
  *  - Richtiges Team / Unentschieden      =  5
  *  - Richtige Anzahl Heimtore            =  1
- *  - Richtige Anzahl Auswaertstore       =  1
+ *  - Richtige Anzahl Auswärtstore       =  1
  *  - Richtige Tordifferenz (nur bei rich-
  *    tigem Sieger-/Unentschieden-Tipp)   =  3
  */

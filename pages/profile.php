@@ -19,7 +19,7 @@ require_once __DIR__ . '/../includes/header.php';
       <?php endif; ?>
 
       <form id="bg-form" enctype="multipart/form-data">
-        <label class="btn primary small" for="bg-file">Hintergrundbild hinzufuegen</label>
+        <label class="btn primary small" for="bg-file">Hintergrundbild hinzufügen</label>
         <input type="file" id="bg-file" name="background" accept="image/*" hidden>
         <?php if ($user['background_image']): ?>
           <button type="button" id="bg-remove" class="btn small">Standard wiederherstellen</button>
@@ -33,7 +33,7 @@ require_once __DIR__ . '/../includes/header.php';
     <tr><th>Vor- / Nachname</th><td><?= htmlspecialchars($user['first_name'].' '.$user['last_name']) ?></td></tr>
     <tr><th>E-Mail</th><td><?= htmlspecialchars($user['email']) ?></td></tr>
     <tr><th>Punkte</th><td><?= (int)$user['points_total'] ?></td></tr>
-    <tr><th>Imaginaeres Geld</th><td><?= number_format((float)$user['money_balance'],2,'.',"'") ?></td></tr>
+    <tr><th>Imaginäres Geld</th><td><?= number_format((float)$user['money_balance'],2,'.',"'") ?></td></tr>
     <tr><th>Erstellt am</th><td><?= htmlspecialchars($user['created_at']) ?></td></tr>
   </table>
 </section>
@@ -59,7 +59,7 @@ require_once __DIR__ . '/../includes/header.php';
           $tipText = $r['mode'] === 'points'
             ? (int)$r['tip_home'].' : '.(int)$r['tip_away']
             : ($r['tip_winner'] === 'home' ? 'Heimsieg'
-              : ($r['tip_winner'] === 'away' ? 'Auswaertssieg' : 'Unentschieden'));
+              : ($r['tip_winner'] === 'away' ? 'Auswärtssieg' : 'Unentschieden'));
       ?>
         <tr>
           <td><?= htmlspecialchars($r['match_datetime']) ?></td>

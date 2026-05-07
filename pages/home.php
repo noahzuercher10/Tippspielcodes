@@ -5,8 +5,8 @@ require_once __DIR__ . '/../includes/header.php';
 <section class="card">
   <h2>Willkommen, <?= htmlspecialchars($user['first_name']) ?>!</h2>
   <p>
-    Waehle oben rechts deinen <strong>Modus</strong> (Punkte oder imaginaeres Geld) und
-    nutze das Menue, um Gruppen zu verwalten, die Rangliste anzuschauen oder
+    Wähle oben rechts deinen <strong>Modus</strong> (Punkte oder imaginäres Geld) und
+    nutze das Menü, um Gruppen zu verwalten, die Rangliste anzuschauen oder
     auf Spiele zu tippen.
   </p>
 
@@ -18,7 +18,7 @@ require_once __DIR__ . '/../includes/header.php';
       </div>
     </div>
     <div class="card" style="margin:0">
-      <strong>Imaginaeres Guthaben</strong>
+      <strong>Imaginäres Guthaben</strong>
       <div style="font-size:28px;color:var(--accent);font-weight:700">
         <?= number_format((float)$user['money_balance'], 2, '.', "'") ?>
       </div>
@@ -35,13 +35,13 @@ require_once __DIR__ . '/../includes/header.php';
     <li>Genau richtiger Tipp = <strong>10 Punkte</strong></li>
     <li>Richtiger Sieger / Unentschieden = <strong>5 Punkte</strong></li>
     <li>Richtige Anzahl Heimtore = <strong>1 Punkt</strong></li>
-    <li>Richtige Anzahl Auswaertstore = <strong>1 Punkt</strong></li>
+    <li>Richtige Anzahl Auswärtstore = <strong>1 Punkt</strong></li>
     <li>Richtige Tordifferenz (nur bei richtigem Sieger-Tipp) = <strong>3 Punkte</strong></li>
   </ul>
 </section>
 
 <section class="card">
-  <h2>Imaginaeres Geld</h2>
+  <h2>Imaginäres Geld</h2>
   <ul>
     <li>Startkapital: <strong>2'500</strong></li>
     <li>Max-Einsatz pro Spiel: <strong>500</strong></li>

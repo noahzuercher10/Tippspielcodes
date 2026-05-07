@@ -2,6 +2,6 @@
 <footer class="footer">
   &copy; <?= date('Y') ?> Tippspiel - ZbW Projekt 2608
 </footer>
-<script src="/Tippspiel/js/app.js"></script>
+<!-- app.js wird im Header geladen, damit Tippspiel vor Page-Scripts da ist -->
 </body>
 </html>

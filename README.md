@@ -8,8 +8,8 @@ Ein Tippspiel das wir fuer die Projektphase des ZbW erstellen.
 
 1. **XAMPP** installieren, Apache + MySQL starten.
 2. Diesen Ordner nach `C:\xampp\htdocs\` kopieren und in **`tipsspiel`** umbenennen.
-3. <http://localhost/phpmyadmin> oeffnen → Reiter **Importieren** → `sql/tippspiel.sql` waehlen → OK.
-4. <http://localhost/tipsspiel/> oeffnen.
+3. <http://localhost/phpmyadmin> öffnen → Reiter **Importieren** → `sql/tippspiel.sql` wählen → OK.
+4. <http://localhost/tipsspiel/> öffnen.
 
 ### Login-Daten der Beispiel-Accounts (Passwort fuer alle: `admin123`)
 
@@ -94,14 +94,14 @@ Spiele anlegen, Teams aendern).
 ### 1. XAMPP installieren
 * Download: <https://www.apachefriends.org/de/>
 * Installieren (Standardpfad `C:\xampp`).
-* **XAMPP Control Panel** oeffnen → **Apache** start, **MySQL** start.
+* **XAMPP Control Panel** öffnen → **Apache** start, **MySQL** start.
 
 ### 2. Projektordner ins htdocs
 Kopiere den Ordner `Tippspielcodes` nach `C:\xampp\htdocs\` und
 benenne ihn um in `tipsspiel`.
 
 ### 3. Datenbank importieren
-* <http://localhost/phpmyadmin> oeffnen
+* <http://localhost/phpmyadmin> öffnen
 * Reiter **"Importieren"**
 * Datei `sql/tippspiel.sql` waehlen → **OK**
 

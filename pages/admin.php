@@ -11,9 +11,18 @@ require_once __DIR__ . '/../includes/header.php';
 
 <section class="card">
   <h2>Sportart hinzufuegen</h2>
+  <p style="color:var(--muted);margin-top:0">
+    Eine neue Sportart braucht den Namen einer PHP-Klasse unter
+    <code>includes/sports/</code> (z.B. <code>FootballSport</code>),
+    die von <code>SportApi</code> erbt.
+  </p>
   <div class="form-grid">
     <input id="sp-name" placeholder="Name (z.B. Volleyball)">
-    <select id="sp-type"><option value="team">Team-Sport</option><option value="single">Einzel-Sport</option></select>
+    <select id="sp-type">
+      <option value="team">Team-Sport</option>
+      <option value="single">Einzel-Sport</option>
+    </select>
+    <input id="sp-class" placeholder="API-Klasse (z.B. FootballSport)">
     <button class="btn primary" id="sp-add">Hinzufuegen</button>
   </div>
 </section>
@@ -23,31 +32,25 @@ require_once __DIR__ . '/../includes/header.php';
   <div class="form-grid">
     <select id="lg-sport"></select>
     <input id="lg-name"  placeholder="Liga-Name">
-    <input id="lg-season" placeholder="Saison (z.B. 2025/26)">
+    <input id="lg-season" placeholder="Saison (z.B. 2025-2026)">
+    <input id="lg-apiid"  placeholder="TheSportsDB-ID (z.B. 4328)">
     <button class="btn primary" id="lg-add">Hinzufuegen</button>
   </div>
 </section>
 
 <section class="card">
-  <h2>Team hinzufuegen</h2>
+  <h2>Liga aus TheSportsDB synchronisieren</h2>
+  <p style="color:var(--muted);margin-top:0">
+    Spiele werden zwar bei jedem Laden automatisch nachgeholt - hier
+    kannst du es manuell auf jetzt zwingen.
+  </p>
   <div class="form-grid">
-    <select id="tm-sport"></select>
-    <input id="tm-name"  placeholder="Teamname">
-    <input id="tm-short" placeholder="Kuerzel">
-    <button class="btn primary" id="tm-add">Hinzufuegen</button>
+    <select id="sync-sport"></select>
+    <select id="sync-league" disabled></select>
+    <button class="btn primary" id="sync-go">Diese Liga jetzt syncen</button>
+    <button class="btn" id="sync-all">ALLE Ligen jetzt syncen</button>
   </div>
-</section>
-
-<section class="card">
-  <h2>Spiel anlegen</h2>
-  <div class="form-grid">
-    <select id="m-sport"></select>
-    <select id="m-league" disabled></select>
-    <select id="m-home"   disabled></select>
-    <select id="m-away"   disabled></select>
-    <input  id="m-dt" type="datetime-local">
-    <button class="btn primary" id="m-add">Spiel anlegen</button>
-  </div>
+  <div id="sync-report" style="margin-top:10px;color:var(--muted);font-size:13px"></div>
 </section>
 
 <section class="card">
@@ -66,5 +69,5 @@ require_once __DIR__ . '/../includes/header.php';
   </table>
 </section>
 
-<script src="/Tippspiel/js/admin.js"></script>
+<script src="/Tippspiel/js/admin.js?v=2"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

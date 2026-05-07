@@ -21,10 +21,10 @@ require_once __DIR__ . '/../includes/header.php';
       <input id="g-name" required>
     </label>
     <label>Sportart
-      <select id="g-sport"><option value="">Sportart waehlen</option></select>
+      <select id="g-sport"><option value="">Sportart wählen</option></select>
     </label>
     <label>Liga / Turnier
-      <select id="g-league" disabled><option value="">Erst Sportart waehlen</option></select>
+      <select id="g-league" disabled><option value="">Erst Sportart wählen</option></select>
     </label>
     <label>Modus
       <select id="g-mode">
@@ -56,5 +56,5 @@ require_once __DIR__ . '/../includes/header.php';
   </form>
 </dialog>
 
-<script src="/Tippspiel/js/groups.js"></script>
+<script src="/Tippspiel/js/groups.js?v=2"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
