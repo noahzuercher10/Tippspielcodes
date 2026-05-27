@@ -213,11 +213,15 @@ abstract class SportApi
 
         $hs = $ev['intHomeScore'] ?? null;
         $as = $ev['intAwayScore'] ?? null;
+        $homeBadge = $this->normBadge($ev['strHomeTeamBadge'] ?? ($ev['strThumbH'] ?? null));
+        $awayBadge = $this->normBadge($ev['strAwayTeamBadge'] ?? ($ev['strThumbA'] ?? null));
         return [
             'home_name'    => $home,
             'away_name'    => $away,
             'home_short'   => $this->shortName($home),
             'away_short'   => $this->shortName($away),
+            'home_badge'   => $homeBadge,
+            'away_badge'   => $awayBadge,
             'datetime'     => trim($date . ' ' . $time),
             'home_score'   => ($hs === null || $hs === '') ? null : (int)$hs,
             'away_score'   => ($as === null || $as === '') ? null : (int)$as,
@@ -228,6 +232,17 @@ abstract class SportApi
     protected function shortName(string $name): string
     {
         return strtoupper(mb_substr(preg_replace('/\s+/', '', $name), 0, 3));
+    }
+
+    protected function normBadge(?string $url): ?string
+    {
+        if (!$url || trim($url) === '') return null;
+        $url = trim($url);
+        // TheSportsDB liefert manchmal relative Pfade
+        if (!str_starts_with($url, 'http')) {
+            $url = 'https://www.thesportsdb.com' . $url;
+        }
+        return $url;
     }
 
     /** -------- DB Helpers -------- */
@@ -241,17 +256,21 @@ abstract class SportApi
         if ($existing) {
             $pdo->prepare(
                 'UPDATE matches SET league_id=?, home_name=?, away_name=?,
-                    home_short=?, away_short=?, match_datetime=? WHERE id=?'
+                    home_short=?, away_short=?, match_datetime=?,
+                    home_badge=COALESCE(?,home_badge), away_badge=COALESCE(?,away_badge)
+                  WHERE id=?'
             )->execute([$leagueId, $n['home_name'], $n['away_name'],
-                        $n['home_short'], $n['away_short'], $n['datetime'], $existing]);
+                        $n['home_short'], $n['away_short'], $n['datetime'],
+                        $n['home_badge'] ?? null, $n['away_badge'] ?? null, $existing]);
             return false;
         }
         $pdo->prepare(
             'INSERT INTO matches (league_id, home_name, away_name, home_short, away_short,
-                                  match_datetime, status, api_event_id)
-             VALUES (?,?,?,?,?,?,"upcoming",?)'
+                                  match_datetime, status, api_event_id, home_badge, away_badge)
+             VALUES (?,?,?,?,?,?,"upcoming",?,?,?)'
         )->execute([$leagueId, $n['home_name'], $n['away_name'],
-                    $n['home_short'], $n['away_short'], $n['datetime'], $n['api_event_id']]);
+                    $n['home_short'], $n['away_short'], $n['datetime'], $n['api_event_id'],
+                    $n['home_badge'] ?? null, $n['away_badge'] ?? null]);
         return true;
     }
 
@@ -264,19 +283,23 @@ abstract class SportApi
         if ($existing) {
             $pdo->prepare(
                 'UPDATE matches SET home_name=?, away_name=?, home_short=?, away_short=?,
-                    home_score=?, away_score=?, status="finished", match_datetime=?
+                    home_score=?, away_score=?, status="finished", match_datetime=?,
+                    home_badge=COALESCE(?,home_badge), away_badge=COALESCE(?,away_badge)
                   WHERE id=?'
             )->execute([$n['home_name'], $n['away_name'], $n['home_short'], $n['away_short'],
-                        $n['home_score'], $n['away_score'], $n['datetime'], $existing]);
+                        $n['home_score'], $n['away_score'], $n['datetime'],
+                        $n['home_badge'] ?? null, $n['away_badge'] ?? null, $existing]);
             return $existing;
         }
         $pdo->prepare(
             'INSERT INTO matches (league_id, home_name, away_name, home_short, away_short,
-                                  match_datetime, home_score, away_score, status, api_event_id)
-             VALUES (?,?,?,?,?,?,?,?,"finished",?)'
+                                  match_datetime, home_score, away_score, status, api_event_id,
+                                  home_badge, away_badge)
+             VALUES (?,?,?,?,?,?,?,?,"finished",?,?,?)'
         )->execute([$leagueId, $n['home_name'], $n['away_name'],
                     $n['home_short'], $n['away_short'], $n['datetime'],
-                    $n['home_score'], $n['away_score'], $n['api_event_id']]);
+                    $n['home_score'], $n['away_score'], $n['api_event_id'],
+                    $n['home_badge'] ?? null, $n['away_badge'] ?? null]);
         return (int)$pdo->lastInsertId();
     }
 

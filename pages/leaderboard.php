@@ -14,11 +14,9 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 <section class="card">
   <h2>Rangliste</h2>
-  <p style="color:var(--muted)">Wechsle den Modus oben rechts, um zwischen Punkte- und Geld-Rangliste zu wechseln.</p>
-
   <div class="lb-tabs" id="lb-tabs"></div>
 
-  <h3 id="lb-title" style="margin:16px 0 8px">Globale Rangliste</h3>
+  <h3 id="lb-title" style="margin:16px 0 8px;font-size:15px;color:var(--muted)">Globale Rangliste</h3>
   <table>
     <thead><tr><th>#</th><th>User</th><th id="score-th">Punkte</th></tr></thead>
     <tbody id="lb-body"></tbody>
@@ -71,10 +69,11 @@ require_once __DIR__ . '/../includes/header.php';
       }));
     }
 
+    const rankClass = i => i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'';
     bodyEl.innerHTML = rows.map((r,i)=>`
       <tr>
-        <td>${i+1}</td>
-        <td>${r.first_name} ${r.last_name} (@${r.username})</td>
+        <td class="${rankClass(i)}">${i+1}</td>
+        <td>${r.first_name} ${r.last_name} <span style="color:var(--muted)">@${r.username}</span></td>
         <td>${mode==='money' ? Number(r.score).toFixed(2) : r.score}</td>
       </tr>`).join('');
   }

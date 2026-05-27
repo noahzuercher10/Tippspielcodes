@@ -1,23 +1,16 @@
 <?php
-/**
- * Tippspiel - Globaler HTML-Header (wird von jeder Page included)
- * ----------------------------------------------------------------
- * Enthaelt:
- *  - Session-Start + Login-Pruefung (require_login)
- *  - HTML-Doctype, Meta-Tags
- *  - app.js (vor allen Page-Scripts, damit Tippspiel-Objekt da ist)
- *  - Optionaler Hintergrund (vom User hochgeladen)
- *  - Top-Bar mit Avatar + Modus-Switch
- *  - Haupt-Navigation
- */
 require_once __DIR__ . '/auth.php';
 $user = require_login();
-// Pages setzen $active vorher, damit der aktuelle Nav-Link markiert wird
 $active = $active ?? '';
-// Optionaler Hintergrund (vom User hochgeladen)
-$bg = $user['background_image']
-    ? '/Tippspiel/' . htmlspecialchars($user['background_image'])
-    : null;
+$themeClass = ($user['theme'] ?? 'light') === 'dark' ? 'dark' : '';
+
+$avatarHtml = '';
+if (!empty($user['profile_picture'])) {
+    $picUrl = '/Tippspiel/' . htmlspecialchars($user['profile_picture']);
+    $avatarHtml = '<img src="' . $picUrl . '" alt="Profilbild">';
+} else {
+    $avatarHtml = htmlspecialchars(initials($user));
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -26,22 +19,13 @@ $bg = $user['background_image']
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tippspiel</title>
 <link rel="stylesheet" href="/Tippspiel/css/style.css">
-<!-- app.js MUSS vor allen Page-Scripts laden, sonst ist Tippspiel undefiniert -->
-<script src="/Tippspiel/js/app.js?v=2"></script>
-<?php if ($bg): ?>
-<style>
-  /* User-spezifischer Hintergrund mit dunkler Overlay-Schicht */
-  body { background-image: linear-gradient(rgba(14,17,22,.85), rgba(14,17,22,.92)),
-                            url("<?= $bg ?>");
-         background-size: cover; background-attachment: fixed; background-position: center; }
-</style>
-<?php endif; ?>
+<script src="/Tippspiel/js/app.js?v=3"></script>
 </head>
-<body>
-<!-- Top-Bar: Avatar links, Brand mittig, Modus-Switch rechts -->
+<body class="<?= $themeClass ?>">
+
 <header class="topbar">
   <a class="profile-link" href="/Tippspiel/pages/profile.php" title="Profil">
-    <span class="avatar"><?= htmlspecialchars(initials($user)) ?></span>
+    <span class="avatar"><?= $avatarHtml ?></span>
     <span class="username"><?= htmlspecialchars($user['username']) ?></span>
   </a>
 
@@ -51,18 +35,18 @@ $bg = $user['background_image']
     <label for="mode">Modus</label>
     <select id="mode">
       <option value="points">Punkte</option>
-      <option value="money">Imaginaeres Geld</option>
+      <option value="money">Imaginäres Geld</option>
     </select>
   </div>
 </header>
 
-<!-- Haupt-Navigation: Gruppen, Rangliste, Sportarten, Admin (nur Admin), Logout -->
 <nav class="mainnav">
-  <a href="/Tippspiel/pages/groups.php"      class="<?= $active==='groups'      ? 'active' : '' ?>">Gruppen</a>
-  <a href="/Tippspiel/pages/leaderboard.php" class="<?= $active==='leaderboard' ? 'active' : '' ?>">Rangliste</a>
-  <a href="/Tippspiel/pages/sports.php"      class="<?= $active==='sports'      ? 'active' : '' ?>">Sportarten</a>
+  <a href="/Tippspiel/pages/home.php"        class="<?= $active==='home'       ? 'active' : '' ?>">Start</a>
+  <a href="/Tippspiel/pages/sports.php"      class="<?= $active==='sports'     ? 'active' : '' ?>">Tippen</a>
+  <a href="/Tippspiel/pages/groups.php"      class="<?= $active==='groups'     ? 'active' : '' ?>">Gruppen</a>
+  <a href="/Tippspiel/pages/leaderboard.php" class="<?= $active==='leaderboard'? 'active' : '' ?>">Rangliste</a>
   <?php if ($user['role'] === 'admin'): ?>
-    <a href="/Tippspiel/pages/admin.php"     class="<?= $active==='admin'       ? 'active' : '' ?>">Admin</a>
+    <a href="/Tippspiel/pages/admin.php"     class="<?= $active==='admin'      ? 'active' : '' ?>">Admin</a>
   <?php endif; ?>
   <a href="/Tippspiel/api/logout.php" class="logout">Logout</a>
 </nav>

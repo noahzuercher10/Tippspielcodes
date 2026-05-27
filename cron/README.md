@@ -13,7 +13,7 @@
 Die F1-Klasse ueberschreibt `syncLeague()` und nutzt eine andere API als alle
 anderen Sportarten - das ist die Vererbungs-Architektur in Aktion.
 
-## Erstbefuellung (EINMALIG, vor allem anderen)
+## Erstbefuellung (EINMALIG, vor allem  )
 
 Doppelklick auf **`sync_full.bat`** - das holt den kompletten Spielplan
 ALLER Ligen bis 10.08.2026 in die Datenbank. Dauert je nach Internet

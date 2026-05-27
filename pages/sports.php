@@ -1,44 +1,25 @@
 <?php
-/**
- * ============================================================
- * Page: Sportarten / Tippen
- * ------------------------------------------------------------
- * Sportart -> Liga -> Tag waehlen und Tipps abgeben.
- *
- * Setzt $active fuer das Hervorheben des aktiven Nav-Links und
- * includiert dann den globalen Header/Footer.
- * ============================================================
- */
 $active = 'sports';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 <section class="card">
-  <h2>Sportarten &amp; Tippen</h2>
-  <p style="color:var(--muted);margin-top:0">
-    Wähle zuerst eine Sportart. Sobald eine Sportart ausgewählt ist,
-    erscheint das Dropdown für die Liga / das Turnier.
-  </p>
+  <h2>Tippen</h2>
 
   <div class="dropdowns">
     <label for="sport" class="dd">Sportart
-      <select id="sport"><option value="">-- Sportart wählen --</option></select>
+      <select id="sport"><option value="">– wählen –</option></select>
     </label>
-
     <label id="league-wrap" for="league" class="dd" style="display:none">Liga / Turnier
-      <select id="league"><option value="">-- Liga / Turnier wählen --</option></select>
+      <select id="league"><option value="">– wählen –</option></select>
     </label>
-
     <label id="day-wrap" for="day" class="dd" style="display:none">Tag
       <input type="date" id="day" value="<?= date('Y-m-d') ?>">
     </label>
-
-    <label id="group-wrap" for="group" class="dd" style="display:none">In Gruppe (optional)
+    <label id="group-wrap" for="group" class="dd" style="display:none">Gruppe (optional)
       <select id="group"><option value="">Ohne Gruppe</option></select>
     </label>
-
     <span class="balance" id="balance" style="display:none"></span>
-
-    <button id="refresh-btn" class="btn" style="display:none;align-self:flex-end" title="Spiele frisch von der API laden">Aktualisieren</button>
+    <button id="refresh-btn" class="btn" style="display:none;align-self:flex-end">Aktualisieren</button>
   </div>
 
   <div class="tip-progress-label" id="tip-progress-label" style="margin-top:14px"></div>
@@ -46,5 +27,5 @@ require_once __DIR__ . '/../includes/header.php';
 
   <div id="matches"></div>
 </section>
-<script src="/Tippspiel/js/sports.js?v=5"></script>
+<script src="/Tippspiel/js/sports.js?v=6"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

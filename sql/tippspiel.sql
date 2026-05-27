@@ -24,7 +24,9 @@ CREATE TABLE users (
     role              ENUM('user','admin') NOT NULL DEFAULT 'user',
     points_total      INT NOT NULL DEFAULT 0,
     money_balance     DECIMAL(12,2) NOT NULL DEFAULT 2500.00,  -- Startkapital
-    background_image  VARCHAR(255) DEFAULT NULL,               -- Pfad rel. zu /img/backgrounds/
+    background_image  VARCHAR(255) DEFAULT NULL,
+    profile_picture   VARCHAR(255) DEFAULT NULL,
+    theme             ENUM('light','dark') NOT NULL DEFAULT 'light',
     created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -67,6 +69,8 @@ CREATE TABLE matches (
     away_score      INT DEFAULT NULL,
     status          ENUM('upcoming','finished','cancelled') NOT NULL DEFAULT 'upcoming',
     api_event_id    VARCHAR(40) DEFAULT NULL,
+    home_badge      VARCHAR(255) DEFAULT NULL,
+    away_badge      VARCHAR(255) DEFAULT NULL,
     UNIQUE KEY uniq_api_event (api_event_id),
     INDEX idx_league_date (league_id, match_datetime),
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE

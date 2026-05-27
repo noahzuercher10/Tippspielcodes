@@ -1,3 +1,0 @@
-div>h1+div>img+h1+p
-
-$$$
