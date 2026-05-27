@@ -86,7 +86,7 @@ function calculate_points_f1(string $extraData, string $homeName): int {
     $tipped = trim($ed['driver'] ?? '');
     if ($tipped === '') return 0;
     if (preg_match('/\(([^)]+)\)\s*$/', $homeName, $m)) {
-        return strcasecmp($tipped, trim($m[1])) === 0 ? 10 : 0;
+        return strcasecmp($tipped, trim($m[1])) === 0 ? 2 : 0;
     }
     return 0;
 }
@@ -158,11 +158,19 @@ function evaluate_match(int $matchId): void {
             }
         } else {
             // ----- Geldmodus -----
-            $payout = calculate_money_payout(
-                (string)$bet['tip_winner'],
-                (int)$match['home_score'], (int)$match['away_score'],
-                (float)$bet['stake']
-            );
+            $extra2 = (string)($bet['extra_data'] ?? '');
+            $ed2    = $extra2 ? json_decode($extra2, true) : [];
+            if (!empty($ed2['driver'])) {
+                // F1 Geldtipp: Fahrer korrekt = Einsatz × 2
+                $correct = calculate_points_f1($extra2, $match['home_name']) > 0;
+                $payout  = $correct ? (float)$bet['stake'] * 2.0 : 0.0;
+            } else {
+                $payout = calculate_money_payout(
+                    (string)$bet['tip_winner'],
+                    (int)$match['home_score'], (int)$match['away_score'],
+                    (float)$bet['stake']
+                );
+            }
             $pdo->prepare('UPDATE bets SET money_earned=?, evaluated=1 WHERE id=?')
                 ->execute([$payout, $bet['id']]);
             // Einsatz wurde beim Tippen abgezogen -> Auszahlung als Plus drauf

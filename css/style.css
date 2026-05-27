@@ -237,17 +237,57 @@ body.dark .auth-body {
   border-radius: 6px; border: 1px solid var(--border);
 }
 
-/* ---- F1 match row ---- */
-.match.f1 {
-  grid-template-columns: 200px 1fr auto;
-  gap: 12px;
+/* ---- F1 Rennen-Karte ---- */
+.f1-race-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 10px;
+  padding: 14px 16px; box-shadow: var(--shadow);
+}
+.f1-race-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; flex-wrap: wrap; gap: 6px;
+}
+.f1-race-name {
+  font-weight: 700; font-size: 15px;
+}
+.f1-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.f1-slot {
+  display: flex; align-items: center; gap: 8px;
 }
 .f1-pos {
-  display: inline-block; padding: 2px 10px;
+  display: inline-block; padding: 2px 8px; min-width: 38px; text-align: center;
   border-radius: 6px; font-size: 12px; font-weight: 700;
   background: rgba(37,99,235,.12); color: var(--primary);
-  border: 1px solid rgba(37,99,235,.2);
+  border: 1px solid rgba(37,99,235,.2); flex-shrink: 0;
 }
+.f1-slot select {
+  flex: 1;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+  font-size: 13px;
+}
+.f1-footer {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;
+}
+.f1-footer input.stake {
+  width: 120px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+  font-size: 13px;
+}
+.f1-result-grid {
+  display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--muted);
+}
+.f1-result-item {
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* legacy single-row F1 (kept for non-grouped fallback) */
+.match.f1 { grid-template-columns: 180px 1fr auto; gap: 12px; }
 .match select.driver-pick {
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
@@ -304,9 +344,8 @@ body.dark .auth-body {
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 9px 10px; text-align: left; }
 th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase;
-     letter-spacing: .4px; border-bottom: 2px solid var(--border); }
+     letter-spacing: .4px; border-bottom: 1px solid var(--border); }
 td { border-bottom: 1px solid var(--border); font-size: 14px; }
-tr:last-child td { border-bottom: 0; }
 
 /* ---- Badges / Balance ---- */
 .badge {

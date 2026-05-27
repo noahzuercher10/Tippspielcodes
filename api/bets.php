@@ -46,26 +46,35 @@ try {
         $tipWinner = null;
         $stake     = 0;
     } else {
-        $tipWinner = $in['tip_winner'] ?? '';
-        $stake     = round((float)($in['stake'] ?? 0), 2);
-        if (!in_array($tipWinner, ['home','draw','away'], true)) {
-            throw new RuntimeException('Bitte Sieger oder Unentschieden tippen.');
+        $tipWinner  = $in['tip_winner'] ?? '';
+        $stake      = round((float)($in['stake'] ?? 0), 2);
+
+        // F1-Fahrertipp im Geldmodus: tip_winner wird nicht benötigt
+        $inEd = $extraData ? json_decode($extraData, true) : [];
+        $isF1DriverPick = !empty($inEd['driver']);
+
+        if (!$isF1DriverPick) {
+            if (!in_array($tipWinner, ['home','draw','away'], true)) {
+                throw new RuntimeException('Bitte Sieger oder Unentschieden tippen.');
+            }
         }
 
-        $u = $pdo->prepare('SELECT money_balance FROM users WHERE id = ? FOR UPDATE');
-        $u->execute([$user['id']]);
-        $bal      = (float)$u->fetchColumn();
-        $maxStake = max_stake($bal);
+        if ($stake > 0) {
+            $u = $pdo->prepare('SELECT money_balance FROM users WHERE id = ? FOR UPDATE');
+            $u->execute([$user['id']]);
+            $bal      = (float)$u->fetchColumn();
+            $maxStake = max_stake($bal);
 
-        if ($maxStake <= 0)             throw new RuntimeException('Du bist pleite. Frag den Admin.');
-        if ($stake < STAKE_LOWER_LIMIT) throw new RuntimeException('Mindesteinsatz: '.STAKE_LOWER_LIMIT.'.');
-        if ($stake > $maxStake)         throw new RuntimeException('Maximal-Einsatz: '.number_format($maxStake,2,'.',''));
+            if ($maxStake <= 0)             throw new RuntimeException('Du bist pleite. Frag den Admin.');
+            if ($stake < STAKE_LOWER_LIMIT) throw new RuntimeException('Mindesteinsatz: '.STAKE_LOWER_LIMIT.'.');
+            if ($stake > $maxStake)         throw new RuntimeException('Maximal-Einsatz: '.number_format($maxStake,2,'.',''));
 
-        $pdo->prepare('UPDATE users SET money_balance = money_balance - ? WHERE id = ?')
-            ->execute([$stake, $user['id']]);
-        if ($groupId) {
-            $pdo->prepare('UPDATE group_members SET money = money - ? WHERE group_id=? AND user_id=?')
-                ->execute([$stake, $groupId, $user['id']]);
+            $pdo->prepare('UPDATE users SET money_balance = money_balance - ? WHERE id = ?')
+                ->execute([$stake, $user['id']]);
+            if ($groupId) {
+                $pdo->prepare('UPDATE group_members SET money = money - ? WHERE group_id=? AND user_id=?')
+                    ->execute([$stake, $groupId, $user['id']]);
+            }
         }
         $tipH = null; $tipA = null;
     }

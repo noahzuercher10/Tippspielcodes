@@ -1,10 +1,15 @@
 <?php
 /**
  * Sync-Script fuer alle Ligen (CLI).
- * Aufgerufen vom Windows Task Scheduler 07:00 + 19:00.
  *
- * Param: --force = ignoriert den 30-Min-Cache und holt alles neu.
- * Beispiel:  php cron/sync_all.php --force
+ * Windows Task Scheduler – stündlich (jede volle Stunde):
+ *   Programm: php
+ *   Argument:  C:\xampp\htdocs\Tippspiel\cron\sync_all.php
+ *   Starten in: C:\xampp\htdocs\Tippspiel
+ *   Trigger: täglich, 00:00, wiederholen alle 1 Stunde, unbegrenzt
+ *
+ * Param: --force = ignoriert den 1h-Cache und holt alles neu.
+ * Beispiel:  php cron\sync_all.php --force
  */
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/sports/SportFactory.php';

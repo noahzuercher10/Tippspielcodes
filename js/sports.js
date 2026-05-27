@@ -42,7 +42,6 @@
   }
   sports.forEach(s => sportSel.add(new Option(s.name, s.id)));
 
-  // Gruppen laden
   const myGroups = await Tippspiel.get('/Tippspiel/api/groups.php');
   function fillGroups() {
     const mode = Tippspiel.getMode();
@@ -52,7 +51,6 @@
   }
   fillGroups();
 
-  // User-Daten
   const me = await Tippspiel.get('/Tippspiel/api/me.php');
   function refreshBalance() {
     if (Tippspiel.getMode() === 'money') {
@@ -67,7 +65,10 @@
   document.addEventListener('mode-changed', () => { fillGroups(); refreshBalance(); loadMatches(); });
   sportSel.addEventListener('change', onSportChange);
   leagueSel.addEventListener('change', onLeagueChange);
-  daySel.addEventListener('change', () => loadMatches());
+  daySel.addEventListener('change', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    loadMatches(daySel.value >= today);
+  });
   groupSel.addEventListener('change', () => loadMatches());
   if (refreshBtn) refreshBtn.addEventListener('click', () => loadMatches(true));
   if (seasonBtn) seasonBtn.addEventListener('click', () => {
@@ -86,10 +87,7 @@
     progressBar.style.width = '0%'; progressLabel.textContent = '';
     if (!sportSel.value) return;
     const ls = await Tippspiel.get('/Tippspiel/api/leagues.php?sport_id=' + sportSel.value);
-    if (!ls.length) {
-      Tippspiel.toast('Keine Ligen für diese Sportart.', 'info');
-      return;
-    }
+    if (!ls.length) { Tippspiel.toast('Keine Ligen für diese Sportart.', 'info'); return; }
     ls.forEach(l => leagueSel.add(new Option(l.season ? `${l.name} ${l.season}` : l.name, l.id)));
     leagueWrap.style.display = 'inline-flex';
   }
@@ -112,9 +110,7 @@
 
   async function loadMatches(force = false) {
     if (!leagueSel.value) { matchesEl.innerHTML = ''; return; }
-    if (force) {
-      matchesEl.innerHTML = '<p style="color:var(--muted);padding:16px 0">Lade von der API...</p>';
-    }
+    if (force) matchesEl.innerHTML = '<p style="color:var(--muted);padding:16px 0">Lade von der API…</p>';
     const params = new URLSearchParams({
       league_id: leagueSel.value,
       date: daySel.value,
@@ -139,11 +135,14 @@
     return `<span class="team-badge-placeholder">${shortName || '?'}</span>`;
   }
 
+  // ----------------------------------------------------------------
+  // renderMatches – main entry point
+  // ----------------------------------------------------------------
   function renderMatches({ matches, total_users, hint, next_matches, sport_class, league_name }, isSeason = false) {
     currentSportClass = sport_class || '';
     currentLeagueName = league_name || '';
 
-    if (!matches.length) {
+    if (!matches || !matches.length) {
       let html = '<div style="text-align:center;padding:28px 0">';
       html += `<p style="color:var(--muted)">${hint || 'Keine Spiele an diesem Tag.'}</p>`;
       html += '<button id="empty-refresh" class="btn primary" style="margin:8px auto">Von API laden</button>';
@@ -167,9 +166,19 @@
       return;
     }
 
-    const totalTips = matches.reduce((a, m) => a + Number(m.tip_count || 0), 0);
-    const max = matches.length * (total_users || 1);
-    const pct = max ? Math.round(totalTips / max * 100) : 0;
+    // Dedup by id (safety net)
+    const seen = new Set();
+    const unique = matches.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
+
+    const totalTips = unique.reduce((a, m) => a + Number(m.tip_count || 0), 0);
+    // Detect F1 by sport_class OR by match data (away_short='F1' / home_short=P1..P10)
+    const isF1 = currentSportClass === 'Formula1Sport'
+        || (unique.length > 0 && (unique[0].away_short === 'F1' || /^P\d+$/.test(unique[0].home_short || '')));
+    // For F1, count unique races (not sub-positions) for progress
+    const denominator = isF1
+      ? ([...new Set(unique.map(m => m.away_name))].length * (total_users || 1))
+      : (unique.length * (total_users || 1));
+    const pct = denominator ? Math.round(totalTips / denominator * 100) : 0;
     progressBar.style.width = pct + '%';
     progressLabel.textContent = `${totalTips} Tipps abgegeben (${pct}%)`;
 
@@ -177,49 +186,165 @@
     const isSingle = selectedSport && selectedSport.type === 'single';
     const now = Date.now();
 
+    let html = '';
     if (isSeason) {
-      const byDate = {};
-      matches.forEach(m => {
-        const d = m.match_datetime.slice(0, 10);
-        (byDate[d] = byDate[d] || []).push(m);
-      });
-      let html = '';
-      for (const [d, ms] of Object.entries(byDate)) {
-        const label = new Date(d).toLocaleDateString('de-CH', {weekday:'short', day:'numeric', month:'short'});
-        html += `<div style="margin:14px 0 4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">${label}</div>`;
-        html += ms.map(m => renderMatchRow(m, isSingle, now)).join('');
+      if (isF1) {
+        html = renderF1All(unique, now);
+      } else {
+        const byDate = {};
+        unique.forEach(m => {
+          const d = m.match_datetime.slice(0, 10);
+          (byDate[d] = byDate[d] || []).push(m);
+        });
+        for (const [d, ms] of Object.entries(byDate)) {
+          const label = new Date(d).toLocaleDateString('de-CH', {weekday:'short', day:'numeric', month:'short'});
+          html += `<div style="margin:14px 0 4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">${label}</div>`;
+          html += ms.map(m => renderMatchRow(m, isSingle, now)).join('');
+        }
+        html = html || '<p style="color:var(--muted);padding:16px 0">Keine Spiele vorhanden.</p>';
       }
-      matchesEl.innerHTML = html || '<p style="color:var(--muted);padding:16px 0">Keine Spiele vorhanden.</p>';
     } else {
-      matchesEl.innerHTML = matches.map(m => renderMatchRow(m, isSingle, now)).join('');
+      html = isF1
+        ? renderF1All(unique, now)
+        : unique.map(m => renderMatchRow(m, isSingle, now)).join('');
     }
+    matchesEl.innerHTML = html;
 
-    // Save buttons
-    matchesEl.querySelectorAll('.save').forEach(btn =>
+    // Save buttons (standard matches)
+    matchesEl.querySelectorAll('.save:not(.f1-save)').forEach(btn =>
       btn.addEventListener('click', () => saveTip(btn.closest('.match')))
     );
-
-    // Tennis set picker: dynamic inputs when set result changes
+    // Save buttons (F1 race cards)
+    matchesEl.querySelectorAll('.f1-save').forEach(btn =>
+      btn.addEventListener('click', () => saveF1Race(btn.closest('.f1-race-card')))
+    );
+    // Tennis set picker
     matchesEl.querySelectorAll('.set-result-sel').forEach(sel => {
       sel.addEventListener('change', () => updateSetInputs(sel));
-      // Pre-fill from existing bet
       if (sel.value) updateSetInputs(sel);
     });
   }
 
   // ----------------------------------------------------------------
-  // renderMatchRow – dispatches to sport-specific renderers
+  // F1: render all races grouped
+  // ----------------------------------------------------------------
+  function renderF1All(matches, now) {
+    const mode = Tippspiel.getMode();
+    const numSlots = mode === 'money' ? 3 : 10;
+
+    // Group by race name (away_name), sort by datetime
+    const races = {};
+    matches.forEach(m => {
+      const race = m.away_name || m.home_name.replace(/\s*–.*$/, '');
+      if (!races[race]) races[race] = { datetime: m.match_datetime, positions: {} };
+      races[race].positions[m.home_short] = m;
+    });
+
+    // Sort races by datetime
+    const sorted = Object.entries(races).sort((a, b) =>
+      new Date(a[1].datetime) - new Date(b[1].datetime)
+    );
+
+    return sorted.map(([raceName, { datetime, positions }]) =>
+      renderF1RaceCard(raceName, positions, numSlots, now)
+    ).join('') || '<p style="color:var(--muted);padding:16px 0">Keine F1-Daten vorhanden. Klicke auf "Aktualisieren".</p>';
+  }
+
+  function renderF1RaceCard(raceName, positions, numSlots, now) {
+    const mode  = Tippspiel.getMode();
+    // Reference match for datetime/status
+    const ref   = positions['P1'] || Object.values(positions)[0];
+    if (!ref) return '';
+    const start  = new Date(ref.match_datetime);
+    const closed = ref.status !== 'upcoming' || start.getTime() <= now;
+    const timeStr = start.toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'numeric'})
+                  + ' ' + start.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'});
+
+    // Existing stake (from P1 money bet if any)
+    let existingStake = '';
+    if (mode === 'money' && positions['P1']?.my_bet?.stake) {
+      existingStake = Number(positions['P1'].my_bet.stake).toFixed(2);
+    }
+
+    // Build position slots (P1…P{numSlots})
+    let slotsHtml = '';
+    const allFinished = Object.values(positions).some(m => m.status === 'finished' || m.home_score !== null);
+
+    for (let i = 1; i <= numSlots; i++) {
+      const posKey = 'P' + i;
+      const m = positions[posKey];
+      if (!m && closed) {
+        // Position not in DB yet
+        slotsHtml += `<div class="f1-slot"><span class="f1-pos">${posKey}</span><span style="color:var(--muted);font-size:13px">–</span></div>`;
+        continue;
+      }
+
+      // Driver result
+      const resultMatch = m?.home_name?.match(/\(([^)]+)\)\s*$/);
+      const resultDriver = resultMatch ? resultMatch[1] : null;
+
+      // Existing pick from saved bet
+      let existingPick = '';
+      if (m?.my_bet?.extra_data) {
+        try { existingPick = JSON.parse(m.my_bet.extra_data)?.driver ?? ''; } catch {}
+      }
+
+      if (closed || !m) {
+        const val = resultDriver || (m?.status === 'finished' ? '–' : 'Offen');
+        slotsHtml += `<div class="f1-slot">
+          <span class="f1-pos">${posKey}</span>
+          <span style="font-size:13px;${resultDriver ? 'color:var(--text);font-weight:600' : 'color:var(--muted)'}">${val}</span>
+          ${existingPick && !resultDriver ? `<span style="font-size:11px;color:var(--muted);margin-left:4px">✓ ${existingPick}</span>` : ''}
+        </div>`;
+      } else {
+        const matchId = m ? m.id : '';
+        const opts = F1_DRIVERS.map(d =>
+          `<option value="${d}" ${d === existingPick ? 'selected' : ''}>${d}</option>`
+        ).join('');
+        slotsHtml += `<div class="f1-slot" data-match-id="${matchId}" data-pos="${posKey}">
+          <span class="f1-pos">${posKey}</span>
+          <select class="driver-pick">
+            <option value="">– Fahrer –</option>
+            ${opts}
+          </select>
+        </div>`;
+      }
+    }
+
+    // Footer: stake (money) + save button
+    let footerHtml = '';
+    if (!closed) {
+      if (mode === 'money') {
+        footerHtml = `
+          <input type="number" step="0.01" min="10" max="500" class="stake f1-stake"
+                 placeholder="Einsatz CHF (für P1)" value="${existingStake}">
+          <button class="btn primary small f1-save">Speichern</button>`;
+      } else {
+        footerHtml = `<button class="btn primary small f1-save">Speichern</button>`;
+      }
+    }
+
+    return `<div class="f1-race-card">
+      <div class="f1-race-header">
+        <span class="f1-race-name">${raceName}</span>
+        <span class="meta">${timeStr}</span>
+        ${closed && !allFinished ? '<span class="badge">Läuft</span>' : ''}
+      </div>
+      <div class="f1-slots">${slotsHtml}</div>
+      ${footerHtml ? `<div class="f1-footer">${footerHtml}</div>` : ''}
+    </div>`;
+  }
+
+  // ----------------------------------------------------------------
+  // renderMatchRow – for non-F1 sports
   // ----------------------------------------------------------------
   function renderMatchRow(m, isSingle, now) {
-    const mode    = Tippspiel.getMode();
-    const isF1     = currentSportClass === 'Formula1Sport';
+    const mode     = Tippspiel.getMode();
     const isTennis = currentSportClass === 'TennisSport';
     const isBestOf5 = isTennis && /australian open|roland garros|wimbledon|us open/i.test(currentLeagueName);
 
-    if (isF1 && mode === 'points') return renderF1Row(m, now);
     if (isTennis && mode === 'points') return renderTennisRow(m, isBestOf5, now);
 
-    // ----- default (team sports + money mode) -----
     const start  = new Date(m.match_datetime);
     const closed = m.status !== 'upcoming' || start.getTime() <= now;
     const result = (m.home_score !== null && m.away_score !== null)
@@ -230,9 +355,7 @@
 
     let statusEl;
     if (m.status === 'finished' || (start.getTime() <= now && m.status !== 'upcoming')) {
-      statusEl = result
-        ? `<span class="result-score">${result}</span>`
-        : `<span class="badge">Beendet</span>`;
+      statusEl = result ? `<span class="result-score">${result}</span>` : `<span class="badge">Beendet</span>`;
     } else if (closed) {
       statusEl = `<span class="badge">Läuft</span>`;
     } else {
@@ -274,62 +397,7 @@
   }
 
   // ----------------------------------------------------------------
-  // F1 row: driver dropdown per position
-  // ----------------------------------------------------------------
-  function renderF1Row(m, now) {
-    const start  = new Date(m.match_datetime);
-    const closed = m.status !== 'upcoming' || start.getTime() <= now;
-    const timeStr = start.toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
-
-    const posLabels = { P1: 'Sieger', P2: '2. Platz', P3: '3. Platz' };
-    const posLabel = posLabels[m.home_short] || m.home_short;
-
-    // Extract race name (away_name holds the plain race name)
-    const raceName = m.away_name || m.home_name.replace(/\s*–.*$/, '');
-
-    // Result: driver in parentheses from home_name when finished
-    const resultMatch = m.home_name.match(/\(([^)]+)\)\s*$/);
-    const resultDriver = resultMatch ? resultMatch[1] : null;
-
-    // Existing bet driver
-    let currentDriver = '';
-    if (m.my_bet?.extra_data) {
-      try { currentDriver = JSON.parse(m.my_bet.extra_data)?.driver ?? ''; } catch {}
-    }
-
-    let actionEl;
-    if (closed) {
-      actionEl = resultDriver
-        ? `<span class="result-score">${resultDriver}</span>`
-        : `<span class="badge">${m.status === 'finished' ? 'Kein Ergebnis' : 'Läuft'}</span>`;
-    } else {
-      const opts = F1_DRIVERS.map(d =>
-        `<option value="${d}" ${d === currentDriver ? 'selected' : ''}>${d}</option>`
-      ).join('');
-      actionEl = `
-        <select class="driver-pick">
-          <option value="">– Fahrer wählen –</option>
-          ${opts}
-        </select>
-        <button class="btn save small" style="margin-top:4px">Speichern</button>`;
-    }
-
-    return `
-      <div class="match f1" data-id="${m.id}">
-        <div>
-          <span class="f1-pos">${m.home_short}</span>
-          <span style="font-size:13px;font-weight:600;margin-left:6px">${posLabel}</span>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">${raceName}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px">${actionEl}</div>
-        <div style="text-align:right"><div class="meta">${timeStr}</div>
-          ${currentDriver && !closed ? `<div style="font-size:11px;color:var(--muted)">Gespeichert: ${currentDriver}</div>` : ''}
-        </div>
-      </div>`;
-  }
-
-  // ----------------------------------------------------------------
-  // Tennis row: set score picker
+  // Tennis set picker
   // ----------------------------------------------------------------
   function renderTennisRow(m, isBestOf5, now) {
     const start  = new Date(m.match_datetime);
@@ -342,26 +410,20 @@
 
     let statusEl;
     if (m.status === 'finished' || (start.getTime() <= now && m.status !== 'upcoming')) {
-      statusEl = result
-        ? `<span class="result-score">${result}</span>`
-        : `<span class="badge">Beendet</span>`;
+      statusEl = result ? `<span class="result-score">${result}</span>` : `<span class="badge">Beendet</span>`;
     } else if (closed) {
       statusEl = `<span class="badge">Läuft</span>`;
     } else {
       statusEl = `<button class="btn save small">Speichern</button>`;
     }
 
-    // Build set result options
     let setOptions;
     if (isBestOf5) {
-      setOptions = ['3:0','3:1','3:2','2:3','1:3','0:3'].map(v =>
-        `<option value="${v}">${v}</option>`).join('');
+      setOptions = ['3:0','3:1','3:2','2:3','1:3','0:3'].map(v => `<option value="${v}">${v}</option>`).join('');
     } else {
-      setOptions = ['2:0','2:1','1:2','0:2'].map(v =>
-        `<option value="${v}">${v}</option>`).join('');
+      setOptions = ['2:0','2:1','1:2','0:2'].map(v => `<option value="${v}">${v}</option>`).join('');
     }
 
-    // Existing bet
     let existingSetResult = '';
     let existingSets = [];
     if (m.my_bet?.extra_data) {
@@ -376,18 +438,16 @@
       } catch {}
     }
 
-    // Build set inputs HTML (pre-populated if existing bet)
     const setInputsHtml = buildSetInputsHtml(existingSetResult, existingSets, closed);
-
     let pickEl;
     if (closed) {
       pickEl = result ? `<span class="result-score">${result}</span>` : `<span class="badge">Beendet</span>`;
     } else {
-      pickEl = `
-        <div class="tennis-pick">
-          <select class="set-result-sel" data-bo5="${isBestOf5 ? '1' : '0'}" ${closed ? 'disabled' : ''}>
+      const optsHtml = setOptions.replace(`value="${existingSetResult}"`, `value="${existingSetResult}" selected`);
+      pickEl = `<div class="tennis-pick">
+          <select class="set-result-sel" data-bo5="${isBestOf5 ? '1' : '0'}">
             <option value="">– Satzverhältnis –</option>
-            ${setOptions.replace(`value="${existingSetResult}"`, `value="${existingSetResult}" selected`)}
+            ${optsHtml}
           </select>
           <div class="set-inputs">${setInputsHtml}</div>
         </div>`;
@@ -423,28 +483,20 @@
 
   function updateSetInputs(sel) {
     const container = sel.closest('.tennis-pick').querySelector('.set-inputs');
-    const setResult  = sel.value;
-    container.innerHTML = buildSetInputsHtml(setResult, [], false);
+    container.innerHTML = buildSetInputsHtml(sel.value, [], false);
   }
 
   // ----------------------------------------------------------------
-  // saveTip
+  // saveTip – standard matches
   // ----------------------------------------------------------------
   async function saveTip(row) {
     const mode     = Tippspiel.getMode();
     const matchId  = Number(row.dataset.id);
     const groupId  = groupSel.value || null;
-    const isF1     = currentSportClass === 'Formula1Sport';
     const isTennis = currentSportClass === 'TennisSport';
     let body;
 
-    if (mode === 'points' && isF1) {
-      const driver = row.querySelector('.driver-pick')?.value ?? '';
-      if (!driver) { Tippspiel.toast('Bitte einen Fahrer auswählen.', 'error'); return; }
-      body = { match_id: matchId, mode, tip_home: 0, tip_away: 0,
-               extra_data: { driver }, group_id: groupId };
-
-    } else if (mode === 'points' && isTennis) {
+    if (mode === 'points' && isTennis) {
       const setResultSel = row.querySelector('.set-result-sel');
       if (!setResultSel?.value) { Tippspiel.toast('Bitte Satzverhältnis wählen.', 'error'); return; }
       const [tipH, tipA] = setResultSel.value.split(':').map(Number);
@@ -455,12 +507,9 @@
         const sh = parseInt(setHInputs[i].value);
         const sa = parseInt(setAInputs[i].value);
         if (isNaN(sh) || isNaN(sa) || sh < 0 || sa < 0) {
-          Tippspiel.toast(`Satz ${i+1}: Bitte gültige Scores eingeben.`, 'error'); return;
+          Tippspiel.toast(`Satz ${i+1}: Gültige Scores eingeben.`, 'error'); return;
         }
         sets.push([sh, sa]);
-      }
-      if (sets.length !== tipH + tipA) {
-        Tippspiel.toast('Anzahl der Sätze stimmt nicht.', 'error'); return;
       }
       body = { match_id: matchId, mode, tip_home: tipH, tip_away: tipA,
                extra_data: { sets }, group_id: groupId };
@@ -488,6 +537,58 @@
     try {
       await Tippspiel.post('/Tippspiel/api/bets.php', body);
       Tippspiel.toast('Tipp gespeichert!', 'ok');
+      if (mode === 'money') {
+        const me2 = await Tippspiel.get('/Tippspiel/api/me.php');
+        Object.assign(me, me2); refreshBalance();
+      }
+      loadMatches();
+    } catch (e) { Tippspiel.toast(e.message, 'error'); }
+  }
+
+  // ----------------------------------------------------------------
+  // saveF1Race – sends one bet per slot of an F1 race card
+  // ----------------------------------------------------------------
+  async function saveF1Race(card) {
+    const mode    = Tippspiel.getMode();
+    const groupId = groupSel.value || null;
+    const slots   = [...card.querySelectorAll('.f1-slot[data-match-id]')];
+
+    if (!slots.length) { Tippspiel.toast('Keine Positionen gefunden.', 'error'); return; }
+
+    // Validate all picks
+    const picks = [];
+    for (const slot of slots) {
+      const driver = slot.querySelector('.driver-pick')?.value ?? '';
+      if (!driver) {
+        Tippspiel.toast(`${slot.dataset.pos}: Bitte Fahrer wählen.`, 'error'); return;
+      }
+      picks.push({ matchId: Number(slot.dataset.matchId), driver, pos: slot.dataset.pos });
+    }
+
+    // Stake for money mode (only applied to P1)
+    let stake = 0;
+    if (mode === 'money') {
+      stake = Number(card.querySelector('.f1-stake')?.value || 0);
+      if (!stake || stake < 10 || stake > 500) {
+        Tippspiel.toast('Einsatz zwischen 10 und 500 CHF.', 'error'); return;
+      }
+    }
+
+    // Send all bets in parallel
+    try {
+      const requests = picks.map(({ matchId, driver, pos }) => {
+        const body = {
+          match_id: matchId, mode,
+          tip_home: 0, tip_away: 0,
+          extra_data: { driver },
+          group_id: groupId,
+          // Only P1 carries the actual stake; others are 0 (informational)
+          stake: (mode === 'money' && pos === 'P1') ? stake : 0,
+        };
+        return Tippspiel.post('/Tippspiel/api/bets.php', body);
+      });
+      await Promise.all(requests);
+      Tippspiel.toast('F1-Tipps gespeichert!', 'ok');
       if (mode === 'money') {
         const me2 = await Tippspiel.get('/Tippspiel/api/me.php');
         Object.assign(me, me2); refreshBalance();

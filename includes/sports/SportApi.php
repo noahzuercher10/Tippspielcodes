@@ -25,8 +25,8 @@ abstract class SportApi
     protected int    $sportId;
     protected string $sportName;
 
-    /** Cache-Frist in Sekunden (default: 30 min) */
-    protected int $cacheTtlSeconds = 600;
+    /** Cache-Frist in Sekunden – Daten werden maximal 1× pro Stunde neu geholt */
+    protected int $cacheTtlSeconds = 3600;
 
     /** Max. zu betrachtende Runde beim Iterieren von eventsround.php */
     protected int $maxRounds = 50;

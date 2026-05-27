@@ -36,11 +36,10 @@ if (!$api) {
 }
 
 try {
-    // Sync: Saisonübersicht + Zukunft immer frisch halten; Vergangenheit nur mit force=1
-    $isPast = strtotime($date) < strtotime(date('Y-m-d'));
+    // Sync immer aufrufen – ensureFresh entscheidet anhand des 1-Stunden-Cache selbst
     if ($force) {
         $api->ensureFresh($leagueId, true);
-    } elseif ($showAll || !$isPast) {
+    } else {
         $api->ensureFresh($leagueId);
     }
 
@@ -63,8 +62,8 @@ try {
         $st->execute([$leagueId, $date]);
         $matches = $st->fetchAll();
 
-        // Future auto-force: zukünftiger Tag leer → einmal frisch syncen
-        if (!$matches && !$force && !$isPast) {
+        // Leerer Tag → einmalig force-sync (egal ob Vergangenheit oder Zukunft)
+        if (!$matches && !$force) {
             $api->ensureFresh($leagueId, true);
             $st->execute([$leagueId, $date]);
             $matches = $st->fetchAll();
@@ -112,6 +111,8 @@ if (!$matches && !$showAll) {
     $sug->execute([$leagueId]);
     $nextSuggestions = $sug->fetchAll();
 }
+
+$isPast = strtotime($date) < strtotime(date('Y-m-d'));
 
 $lgRow = db()->prepare(
     'SELECT l.name AS league_name, s.api_class FROM leagues l JOIN sports s ON s.id = l.sport_id WHERE l.id = ?'

@@ -19,25 +19,29 @@ Doppelklick auf **`sync_full.bat`** - das holt den kompletten Spielplan
 ALLER Ligen bis 10.08.2026 in die Datenbank. Dauert je nach Internet
 1-3 Minuten und schreibt das Ergebnis ins Konsolenfenster.
 
-## Taegliche Updates 07:00 + 15:00
+## Stündliche Updates (empfohlen)
 
-Damit jeden Morgen (07:00) und Nachmittag (15:00) Resultate vergangener
-Spiele eingetragen und neue Spiele dazukommen, muss `sync_all.bat`
-zweimal pro Tag automatisch laufen.
+Der Sync soll jede Stunde laufen, damit Resultate laufender Turniere
+zeitnah erscheinen (Tennis, F1, etc.).
 
 ### Einrichten (einmalig im Windows Aufgabenplaner)
 
-1. Windows-Suche: "Aufgabenplanung" oeffnen
+1. Windows-Suche: "Aufgabenplanung" öffnen
 2. Rechte Spalte: "Aufgabe erstellen..."
 3. Reiter **Allgemein**:
-   - Name: `Tippspiel Sync`
-   - "Unabhaengig von der Benutzeranmeldung ausfuehren"
-4. Reiter **Trigger** -> **Neu** (zwei Trigger anlegen):
-   - Trigger 1: Taeglich, Beginn 07:00
-   - Trigger 2: Taeglich, Beginn 15:00
-5. Reiter **Aktionen** -> **Neu**:
+   - Name: `Tippspiel Sync stündlich`
+   - "Unabhängig von der Benutzeranmeldung ausführen"
+4. Reiter **Trigger** → **Neu**:
+   - Taeglich, Beginn `00:00`
+   - ✅ **Wiederholen alle: 1 Stunde** für eine Dauer von **unbegrenzt**
+5. Reiter **Aktionen** → **Neu**:
    - Programm: `C:\xampp\htdocs\Tippspiel\cron\sync_all.bat`
 6. Speichern
+
+Alternativ einmalige Erstbefüllung (alle Daten holen):
+```
+php cron\sync_all.php --force
+```
 
 ### Logfile
 
