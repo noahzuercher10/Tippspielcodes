@@ -77,6 +77,40 @@ function max_stake(float $balance): float {
 }
 
 /**
+ * Formel 1: Tipp-Bewertung (Fahrer korrekt getippt = 10 Punkte).
+ * Der korrekte Fahrer steht in Klammern am Ende von home_name:
+ *   "Monaco GP – Sieger (Max Verstappen)"
+ */
+function calculate_points_f1(string $extraData, string $homeName): int {
+    $ed = json_decode($extraData, true);
+    $tipped = trim($ed['driver'] ?? '');
+    if ($tipped === '') return 0;
+    if (preg_match('/\(([^)]+)\)\s*$/', $homeName, $m)) {
+        return strcasecmp($tipped, trim($m[1])) === 0 ? 10 : 0;
+    }
+    return 0;
+}
+
+/**
+ * Tennis: Tipp-Bewertung anhand von extra_data.sets.
+ * Leitet aus den getippten Einzel-Satz-Ergebnissen die Satz-Anzahl ab
+ * und bewertet dann wie im Standard-Punktemodus (Sätze statt Tore).
+ */
+function calculate_points_tennis(string $extraData, int $resH, int $resA): int {
+    $ed   = json_decode($extraData, true);
+    $sets = $ed['sets'] ?? [];
+    if (!$sets) return 0;
+    $tipH = 0; $tipA = 0;
+    foreach ($sets as $s) {
+        $sh = (int)($s[0] ?? 0);
+        $sa = (int)($s[1] ?? 0);
+        if ($sh > $sa) $tipH++;
+        elseif ($sa > $sh) $tipA++;
+    }
+    return calculate_points($tipH, $tipA, $resH, $resA);
+}
+
+/**
  * Wertet ALLE noch nicht ausgewerteten Tipps eines beendeten Spiels aus.
  * Wird aufgerufen wenn:
  *  - der Admin ein Resultat manuell eintraegt (api/admin.php set_result)
@@ -99,10 +133,18 @@ function evaluate_match(int $matchId): void {
     foreach ($bets as $bet) {
         if ($bet['mode'] === 'points') {
             // ----- Punktemodus -----
-            $pts = calculate_points(
-                (int)$bet['tip_home'], (int)$bet['tip_away'],
-                (int)$match['home_score'], (int)$match['away_score']
-            );
+            $extra = (string)($bet['extra_data'] ?? '');
+            $ed    = $extra ? json_decode($extra, true) : [];
+            if (!empty($ed['driver'])) {
+                $pts = calculate_points_f1($extra, $match['home_name']);
+            } elseif (!empty($ed['sets'])) {
+                $pts = calculate_points_tennis($extra, (int)$match['home_score'], (int)$match['away_score']);
+            } else {
+                $pts = calculate_points(
+                    (int)$bet['tip_home'], (int)$bet['tip_away'],
+                    (int)$match['home_score'], (int)$match['away_score']
+                );
+            }
             // Tipp als "evaluated" markieren + Punkte am Tipp speichern
             $pdo->prepare('UPDATE bets SET points_earned=?, evaluated=1 WHERE id=?')
                 ->execute([$pts, $bet['id']]);

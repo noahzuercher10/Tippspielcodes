@@ -18,8 +18,8 @@ if (!empty($user['profile_picture'])) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tippspiel</title>
-<link rel="stylesheet" href="/Tippspiel/css/style.css?v=4">
-<script src="/Tippspiel/js/app.js?v=4"></script>
+<link rel="stylesheet" href="/Tippspiel/css/style.css?v=5">
+<script src="/Tippspiel/js/app.js?v=5"></script>
 </head>
 <body class="<?= $themeClass ?>">
 

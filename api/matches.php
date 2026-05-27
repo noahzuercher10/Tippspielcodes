@@ -113,11 +113,19 @@ if (!$matches && !$showAll) {
     $nextSuggestions = $sug->fetchAll();
 }
 
+$lgRow = db()->prepare(
+    'SELECT l.name AS league_name, s.api_class FROM leagues l JOIN sports s ON s.id = l.sport_id WHERE l.id = ?'
+);
+$lgRow->execute([$leagueId]);
+$lgInfo = $lgRow->fetch();
+
 $out = [
-    'matches'     => $matches,
-    'date'        => $date,
-    'total_users' => $totalUsers,
-    'sport'       => $api->getSportName(),
+    'matches'      => $matches,
+    'date'         => $date,
+    'total_users'  => $totalUsers,
+    'sport'        => $api->getSportName(),
+    'sport_class'  => $lgInfo ? $lgInfo['api_class']    : '',
+    'league_name'  => $lgInfo ? $lgInfo['league_name']  : '',
 ];
 
 if (!$matches && !$showAll) {

@@ -1,17 +1,14 @@
 <?php
 require_once __DIR__ . '/SportApi.php';
 
+/**
+ * Tennis – ATP Tour + Grand Slams
+ * Unterstützt zwei api_id-Formate:
+ *   - Zahl (TheSportsDB-Liga-ID): normaler Sync
+ *   - "search:X": Suche via searchevents.php nach Turniername X
+ */
 class TennisSport extends SportApi
 {
-    /**
-     * Tennis hat keine Runden wie Fussball – wir überspringen
-     * die eventsround-Iteration komplett und nutzen nur:
-     *  1) eventsseason  (bis zu ~50 Spiele der Saison)
-     *  2) eventsnext    (nächste anstehende Matches)
-     *  3) eventspast    (letzte Ergebnisse)
-     *
-     * Das vermeidet 50 × API-Calls × 150 ms = ~8 Sekunden Timeout.
-     */
     public function syncLeague(int $leagueId, string $apiLeagueId, string $season = ''): array
     {
         $pdo     = db();
@@ -28,16 +25,30 @@ class TennisSport extends SportApi
             if ($cnt > 0) $sources[] = "$src=$cnt";
         };
 
-        if ($season !== '') {
-            $add($this->fetchSeasonEvents($apiLeagueId, $season), 'season');
+        // Grand Slam via Turniername-Suche
+        if (str_starts_with($apiLeagueId, 'search:')) {
+            $term = substr($apiLeagueId, 7);
+            // Aktuelle Saison + vergangene Saison suchen
+            foreach ([$season, (string)((int)$season - 1)] as $s) {
+                if ($s === '') continue;
+                $res = $this->tsdbCall('searchevents.php?e=' . urlencode($term) . '&s=' . urlencode($s));
+                $add($res['event'] ?? [], "search:$term");
+            }
+            // Zusätzlich: direkte Suche ohne Saison (gibt aktuellste Events)
+            $res2 = $this->tsdbCall('searchevents.php?e=' . urlencode($term));
+            $add($res2['event'] ?? [], "searchAll:$term");
+        } else {
+            // Normale TheSportsDB-Sync (kein Runden-Iterator für Tennis)
+            if ($season !== '') {
+                $add($this->fetchSeasonEvents($apiLeagueId, $season), 'season');
+            }
+            $add($this->fetchUpcomingEvents($apiLeagueId), 'next');
+            $add($this->fetchPastEvents($apiLeagueId),     'past');
         }
-        $add($this->fetchUpcomingEvents($apiLeagueId), 'next');
-        $add($this->fetchPastEvents($apiLeagueId), 'past');
 
         $imported = 0; $updated = 0; $seen = 0;
         $now      = time();
         $maxTs    = strtotime($this->maxDate . ' 23:59:59');
-        $checkExist = $pdo->prepare('SELECT id FROM matches WHERE api_event_id = ?');
 
         foreach ($merged as $ev) {
             $seen++;
@@ -47,15 +58,10 @@ class TennisSport extends SportApi
             if ($ts === false || $ts > $maxTs) continue;
 
             $isPast = $ts < $now;
-            if ($isPast) {
-                $checkExist->execute([$n['api_event_id']]);
-                if (!$checkExist->fetchColumn()) continue;
-            }
-
             if ($n['home_score'] !== null && $n['away_score'] !== null) {
                 $mid = $this->upsertFinished($leagueId, $n);
                 if ($mid) { evaluate_match($mid); $updated++; }
-            } else {
+            } elseif (!$isPast) {
                 $imported += $this->upsertUpcoming($leagueId, $n) ? 1 : 0;
             }
         }
@@ -77,8 +83,7 @@ class TennisSport extends SportApi
         $away = trim((string)($ev['strAwayTeam'] ?? ''));
 
         if (($home === '' || $away === '') && !empty($ev['strEvent'])) {
-            if (preg_match('/^(.*?)\s+(vs\.?|vs|gegen|-)\s+(.*)$/i',
-                           (string)$ev['strEvent'], $m)) {
+            if (preg_match('/^(.*?)\s+(vs\.?|vs|gegen|-)\s+(.*)$/i', (string)$ev['strEvent'], $m)) {
                 $home = $home !== '' ? $home : trim($m[1]);
                 $away = $away !== '' ? $away : trim($m[3]);
             }

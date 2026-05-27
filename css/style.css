@@ -237,6 +237,50 @@ body.dark .auth-body {
   border-radius: 6px; border: 1px solid var(--border);
 }
 
+/* ---- F1 match row ---- */
+.match.f1 {
+  grid-template-columns: 200px 1fr auto;
+  gap: 12px;
+}
+.f1-pos {
+  display: inline-block; padding: 2px 10px;
+  border-radius: 6px; font-size: 12px; font-weight: 700;
+  background: rgba(37,99,235,.12); color: var(--primary);
+  border: 1px solid rgba(37,99,235,.2);
+}
+.match select.driver-pick {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+  font-size: 13px; min-width: 200px;
+}
+
+/* ---- Tennis set picker ---- */
+.match.tennis-pts {
+  grid-template-columns: 1fr 1.6fr 1fr 160px;
+  align-items: start;
+}
+.tennis-pick {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.tennis-pick select {
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; font-size: 13px;
+}
+.set-inputs {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 2px;
+}
+.set-inputs-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted);
+}
+.set-inputs-row input {
+  width: 42px; text-align: center;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 2px; font-size: 13px;
+}
+
 /* ---- Dropdowns ---- */
 .dropdowns { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
 .dropdowns .dd {

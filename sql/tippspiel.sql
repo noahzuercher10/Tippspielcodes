@@ -98,6 +98,7 @@ CREATE TABLE bets (
     stake           DECIMAL(12,2) DEFAULT 0.00,
     points_earned   INT DEFAULT 0,
     money_earned    DECIMAL(12,2) DEFAULT 0.00,
+    extra_data      TEXT DEFAULT NULL,
     evaluated       TINYINT(1) DEFAULT 0,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_user_match_group_mode (user_id, match_id, group_id, mode),
@@ -135,8 +136,11 @@ INSERT INTO leagues (sport_id,name,season,api_id) VALUES
  -- Basketball
  (3,'NBA',                    '2025-2026','4387'),
  (3,'EuroLeague',             '2025-2026','4408'),
- -- Tennis (ATP-Tour als Liga)
- (4,'ATP Tour',               '2026','4464'),
+ -- Tennis: Grand Slams (search: prefix) + ATP Tour
+ (4,'Australian Open',        '2026','search:Australian Open'),
+ (4,'Roland Garros',          '2026','search:Roland Garros'),
+ (4,'Wimbledon',              '2026','search:Wimbledon'),
+ (4,'US Open',                '2026','search:US Open'),
  -- Formel 1
  (5,'Formel 1 Saison',        '2026','4370');
 

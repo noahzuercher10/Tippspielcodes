@@ -48,6 +48,7 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
       <input type="checkbox" id="theme-toggle" <?= $isDark ? 'checked' : '' ?>>
       <span class="toggle-slider"></span>
     </label>
+    <span style="font-size:14px;color:var(--muted)">Light Mode</span>
   </div>
 </section>
 
