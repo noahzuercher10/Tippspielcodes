@@ -1,4 +1,14 @@
 <?php
+/**
+ * ============================================================
+ * Page: Profil
+ * ------------------------------------------------------------
+ * Eigene Stats + Hintergrundbild hochladen.
+ *
+ * Setzt $active fuer das Hervorheben des aktiven Nav-Links und
+ * includiert dann den globalen Header/Footer.
+ * ============================================================
+ */
 $active = 'profile';
 require_once __DIR__ . '/../includes/header.php';
 ?>

@@ -1,0 +1,34 @@
+{
+	"folders": [
+		{
+			"path": "../.git"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../config"
+		},
+		{
+			"path": "../cron"
+		},
+		{
+			"path": "../css"
+		},
+		{
+			"path": "../img"
+		},
+		{
+			"path": "../includes"
+		},
+		{
+			"path": "../js"
+		},
+		{
+			"path": "../pages"
+		},
+		{
+			"path": "../sql"
+		}
+	]
+}

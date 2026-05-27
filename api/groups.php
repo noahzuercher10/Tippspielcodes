@@ -1,12 +1,15 @@
 <?php
 /**
+ * ============================================================
  * Gruppen-API
- *
- *  GET    /api/groups.php             -> meine Gruppen
- *  GET    /api/groups.php?id=1        -> Detail mit Mitgliedern
- *  POST   /api/groups.php  action=create  { name, mode, league_id, join_code? }
- *  POST   /api/groups.php  action=join    { join_code }
- *  POST   /api/groups.php  action=leave   { group_id }
+ * ------------------------------------------------------------
+ * Endpoints:
+ *   GET    /api/groups.php             -> Liste meiner Gruppen
+ *   GET    /api/groups.php?id=1        -> Detailansicht inkl. Members
+ *   POST   /api/groups.php  action=create  { name, mode, league_id, join_code? }
+ *   POST   /api/groups.php  action=join    { join_code }
+ *   POST   /api/groups.php  action=leave   { group_id }
+ * ============================================================
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
@@ -14,9 +17,13 @@ header('Content-Type: application/json');
 $user = require_login();
 $pdo  = db();
 
+// ---------- GET-Branch (Liste oder Detail) ----------
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+
+    // Detailansicht einer einzelnen Gruppe
     if (isset($_GET['id'])) {
         $id = (int) $_GET['id'];
+        // Basis-Daten der Gruppe + Liga + Sportart
         $g = $pdo->prepare(
             'SELECT g.*, l.name AS league_name, s.name AS sport_name
              FROM groups_t g
@@ -28,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $group = $g->fetch();
         if (!$group) { http_response_code(404); echo json_encode(['error'=>'not found']); exit; }
 
+        // Mitglieder sortiert nach Score des Gruppen-Modus
         $m = $pdo->prepare(
             'SELECT u.id, u.username, u.first_name, u.last_name,
                     gm.points, gm.money
@@ -42,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
+    // Liste aller Gruppen, in denen der User Mitglied ist
     $stmt = $pdo->prepare(
         'SELECT g.*, l.name AS league_name, s.name AS sport_name,
                 (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id) AS member_count
@@ -56,15 +65,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-// POST
+// ---------- POST-Branch (create/join/leave) ----------
 $in = json_decode(file_get_contents('php://input'), true) ?: $_POST;
 $action = $in['action'] ?? '';
 
 try {
     if ($action === 'create') {
+        // Neue Gruppe anlegen + Ersteller direkt als Mitglied + Admin
         $name     = trim($in['name'] ?? '');
         $mode     = $in['mode'] ?? 'points';
         $leagueId = (int)($in['league_id'] ?? 0);
+        // Wenn kein Code mitgegeben wird, automatisch generieren
         $code     = trim($in['join_code'] ?? '') ?: generate_join_code();
         if ($name === '' || !in_array($mode,['points','money'],true) || $leagueId<=0) {
             throw new RuntimeException('Ungueltige Eingabe.');
@@ -80,16 +91,19 @@ try {
         echo json_encode(['ok'=>true, 'id'=>$gid, 'join_code'=>$code]);
 
     } elseif ($action === 'join') {
+        // Beitreten ueber Join-Code
         $code = trim($in['join_code'] ?? '');
         $g = $pdo->prepare('SELECT id FROM groups_t WHERE join_code = ?');
         $g->execute([$code]);
         $gid = (int)$g->fetchColumn();
         if (!$gid) throw new RuntimeException('Gruppe nicht gefunden.');
+        // INSERT IGNORE: Doppel-Beitritt ist kein Fehler
         $pdo->prepare('INSERT IGNORE INTO group_members (group_id,user_id) VALUES (?,?)')
             ->execute([$gid, $user['id']]);
         echo json_encode(['ok'=>true, 'id'=>$gid]);
 
     } elseif ($action === 'leave') {
+        // Gruppe verlassen
         $gid = (int)($in['group_id'] ?? 0);
         $pdo->prepare('DELETE FROM group_members WHERE group_id=? AND user_id=?')
             ->execute([$gid, $user['id']]);

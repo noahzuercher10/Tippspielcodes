@@ -1,4 +1,14 @@
 <?php
+/**
+ * ============================================================
+ * Page: Rangliste
+ * ------------------------------------------------------------
+ * Globale Top-100 nach Punkten oder Geld.
+ *
+ * Setzt $active fuer das Hervorheben des aktiven Nav-Links und
+ * includiert dann den globalen Header/Footer.
+ * ============================================================
+ */
 $active = 'leaderboard';
 require_once __DIR__ . '/../includes/header.php';
 ?>

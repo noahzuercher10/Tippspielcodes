@@ -1,30 +1,47 @@
 <?php
 /**
- * GET /api/matches.php?league_id=1&date=YYYY-MM-DD&mode=points|money[&group_id=][&debug=1]
+ * ============================================================
+ * GET /api/matches.php
+ * ------------------------------------------------------------
+ * Liefert die Spiele EINER Liga an EINEM Tag (nur ZUKUENFTIGE).
  *
- * - Holt die Spiele EINER Liga an EINEM Tag
- * - Spiele werden via passendem SportApi-Objekt (Vererbung) aus
- *   TheSportsDB gezogen und in `matches` gecacht.
- * - Liefert eigenen Tipp + Tipp-Quote zurueck.
- * - Mit ?debug=1 kommen zusaetzlich Sync-Stats und Liga-Info zurueck.
+ * Query-Parameter:
+ *   league_id  - DB-ID der Liga (erforderlich)
+ *   date       - YYYY-MM-DD (default: heute)
+ *   mode       - "points" oder "money" (default: points)
+ *   group_id   - optional: nur Tipps einer Gruppe beruecksichtigen
+ *   debug      - optional: zusaetzliche Debug-Info im Result
+ *   force      - optional: 30-Min-Cache ignorieren, frisch syncen
+ *
+ * Liefer-Logik:
+ *   - Datum vor heute    -> leere Liste (vergangene Tage nicht anzeigen)
+ *   - Datum heute        -> nur Spiele die noch nicht begonnen haben
+ *   - Datum in Zukunft   -> alle Spiele dieses Tages
+ *
+ * Auto-Force: falls zukuenftiger Tag aber leer -> einmal hart resyncen.
+ * ============================================================
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/sports/SportFactory.php';
 header('Content-Type: application/json');
 $user = require_login();
 
+// ---- Query-Parameter einlesen + Defaults ----
 $leagueId = (int)($_GET['league_id'] ?? 0);
 $date     = $_GET['date'] ?? date('Y-m-d');
 $mode     = $_GET['mode'] ?? 'points';
 $groupId  = isset($_GET['group_id']) && $_GET['group_id'] !== '' ? (int)$_GET['group_id'] : null;
 $debug    = !empty($_GET['debug']);
+$force    = !empty($_GET['force']);
 
+// Validierung: league_id muss > 0 + Datum im Format YYYY-MM-DD
 if ($leagueId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
     http_response_code(400);
     echo json_encode(['error' => 'league_id und date erforderlich']);
     exit;
 }
 
+// SportApi-Objekt fuer die Liga holen (FootballSport, IceHockeySport, ...)
 $api = SportFactory::forLeagueId($leagueId);
 if (!$api) {
     http_response_code(404);
@@ -32,29 +49,57 @@ if (!$api) {
     exit;
 }
 
-// Vor dem Lesen: Sync erzwingen wenn Cache abgelaufen
 $syncStats = null;
 try {
-    $row = db()->prepare('SELECT api_id FROM leagues WHERE id = ?');
-    $row->execute([$leagueId]);
-    $apiId = (string)$row->fetchColumn();
-    if ($apiId !== '') {
-        // ensureFresh respektiert die 30-Min-TTL
+    // ---- Sync vor dem Lesen ----
+    if ($force) {
+        // force=1 -> 30-Min-Cache komplett umgehen
+        $api->ensureFresh($leagueId, true);
+    } else {
+        // ensureFresh checkt selbst ob last_sync zu alt ist
         $api->ensureFresh($leagueId);
     }
-    $matches = $api->getMatchesForDay($leagueId, $date);
+
+    // ---- Branch je nach Datum ----
+    if (strtotime($date) < strtotime(date('Y-m-d'))) {
+        // Vergangenheit -> nicht anzeigen
+        $matches = [];
+    } else {
+        // Heute oder Zukunft: SQL passend bauen
+        $sql = ($date === date('Y-m-d'))
+            ? 'SELECT m.* FROM matches m
+                WHERE m.league_id = ?
+                  AND DATE(m.match_datetime) = ?
+                  AND m.match_datetime > NOW()      -- nur noch nicht gestartete
+                ORDER BY m.match_datetime'
+            : 'SELECT m.* FROM matches m
+                WHERE m.league_id = ?
+                  AND DATE(m.match_datetime) = ?
+                ORDER BY m.match_datetime';
+        $st = db()->prepare($sql);
+        $st->execute([$leagueId, $date]);
+        $matches = $st->fetchAll();
+
+        // Auto-Force: zukuenftiger Tag, leer, noch nicht geforced
+        // -> einmal hart neu syncen und nochmal abfragen.
+        if (!$matches && !$force && strtotime($date) > strtotime(date('Y-m-d'))) {
+            $api->ensureFresh($leagueId, true);
+            $st->execute([$leagueId, $date]);
+            $matches = $st->fetchAll();
+        }
+    }
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['error' => 'API/DB-Fehler: ' . $e->getMessage()]);
     exit;
 }
 
-// Tipp-Quote
+// ---- Tipp-Quote: wie viele User haben getippt? ----
 $totalUsers = (int)db()->query(
     'SELECT COUNT(*) FROM users WHERE role = "user"'
 )->fetchColumn();
 
-// Eigenen Tipp pro Match dazuladen
+// Vorbereitete Statements wiederverwenden (schneller)
 $bet = db()->prepare(
     'SELECT * FROM bets
      WHERE user_id = ? AND match_id = ? AND mode = ?
@@ -64,6 +109,7 @@ $cnt = db()->prepare(
     'SELECT COUNT(DISTINCT user_id) FROM bets WHERE match_id = ?'
 );
 
+// Pro Match: eigenen Tipp + Anzahl Tipper anhaengen
 foreach ($matches as &$m) {
     $params = [$user['id'], $m['id'], $mode];
     if ($groupId !== null) $params[] = $groupId;
@@ -76,15 +122,13 @@ foreach ($matches as &$m) {
 }
 unset($m);
 
-// Wenn keine Spiele am gewünschten Tag: zeig die nächsten 5 Spiele
-// (zur Diagnose / damit der User sieht, wann was stattfindet).
+// ---- Leerer Tag: naechste 5 Spiele dieser Liga vorschlagen ----
 $nextSuggestions = [];
 if (!$matches) {
     $sug = db()->prepare(
         'SELECT id, home_name, away_name, match_datetime, status
          FROM matches
-         WHERE league_id = ?
-           AND match_datetime >= NOW()
+         WHERE league_id = ? AND match_datetime > NOW()
          ORDER BY match_datetime
          LIMIT 5'
     );
@@ -92,6 +136,7 @@ if (!$matches) {
     $nextSuggestions = $sug->fetchAll();
 }
 
+// ---- Response zusammenbauen ----
 $out = [
     'matches'     => $matches,
     'date'        => $date,
@@ -99,15 +144,23 @@ $out = [
     'sport'       => $api->getSportName(),
 ];
 if (!$matches) {
-    $out['hint'] = 'Keine Spiele an diesem Tag - hier sind die nächsten geplanten Spiele dieser Liga:';
+    // Hinweistext je nach Situation
+    if (strtotime($date) < strtotime(date('Y-m-d'))) {
+        $out['hint'] = 'Vergangene Tage werden nicht angezeigt.';
+    } else {
+        $out['hint'] = 'Keine Spiele in der Datenbank fuer diesen Tag. Klicke auf "Aktualisieren" um frisch von der API zu laden.';
+    }
     $out['next_matches'] = $nextSuggestions;
 }
+// Debug-Mode: zusaetzliche Diagnose-Felder
 if ($debug) {
     $out['debug'] = [
-        'league_id'  => $leagueId,
-        'last_error' => $api->lastError,
-        'php_curl'   => function_exists('curl_init'),
-        'allow_url_fopen' => (bool)ini_get('allow_url_fopen'),
+        'league_id'        => $leagueId,
+        'last_error'       => $api->lastError,
+        'php_curl'         => function_exists('curl_init'),
+        'allow_url_fopen'  => (bool)ini_get('allow_url_fopen'),
+        'now'              => date('Y-m-d H:i:s'),
+        'forced'           => $force,
     ];
 }
 

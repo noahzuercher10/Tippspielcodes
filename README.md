@@ -31,7 +31,7 @@ Ein Tippspiel das wir fuer die Projektphase des ZbW erstellen.
 * **Geldmodus** – nur **Sieger oder Unentschieden** tippen.
   * Startkapital: **2'500**
   * Min-Einsatz pro Spiel: **10**
-  * Max-Einsatz pro Spiel: **500** (faellt mit dem Guthaben mit, geht
+  * Max-Einsatz pro Spiel: **500** (fällt mit dem Guthaben mit, geht
     aber nie ueber 500)
   * Richtig getippt → Einsatz wird **verdoppelt** ausgezahlt
   * Falsch → Einsatz **weg**
@@ -43,7 +43,7 @@ Ein Tippspiel das wir fuer die Projektphase des ZbW erstellen.
 * **Profil** – Avatar mit Initialen + optionales eigenes
   **Hintergrundbild** (Upload-Button rechts vom Avatar).
 * **Admin** – Sportarten/Ligen/Teams/Spiele anlegen, Resultate
-  eintragen (verteilt automatisch Punkte und Geld), User loeschen,
+  eintragen (verteilt automatisch Punkte und Geld), User löschen,
   **Geld verschenken**, **Spielplan-Import via TheSportsDB**.
 
 ---
@@ -61,13 +61,13 @@ Die App ist mit 5 Sportarten vorbefuellt:
 | Formel 1   | Einzel   | Saison 2026                                      |
 
 Sample-Spiele sind in `sql/tippspiel.sql` enthalten — fuer jede Liga
-mindestens 2 Beispiele und nur Teams aus der dazugehoerigen Sportart.
+mindestens 2 Beispiele und nur Teams aus der dazugehörigen Sportart.
 
 ---
 
 ## Spielplan automatisch holen (TheSportsDB)
 
-Wir nutzen die kostenlose **TheSportsDB**-API (kein Key noetig fuer
+Wir nutzen die kostenlose **TheSportsDB**-API (kein Key nötig für
 Basisendpoints): <https://www.thesportsdb.com/free_sports_api>
 
 Pro Liga hinterlegen wir in der Tabelle `leagues.api_id` die TheSportsDB-
@@ -75,17 +75,17 @@ Liga-ID (z.B. Super League = `4344`, Bundesliga = `4331`, NBA = `4387`).
 
 Der Endpunkt **`/api/import-from-thesportsdb.php?league_id=<id>`** holt
 fuer eine Liga:
-* die naechste Runde -> als `upcoming`-Spiele eintragen
+* die nächste Runde -> als `upcoming`-Spiele eintragen
 * die letzte gespielte Runde -> als `finished` mit Resultat speichern
   und sofort die Tipps der User auswerten (Punkte und Geld werden
   verbucht).
 
 **Aufruf**: nur Admins. Im Browser einfach
 <http://localhost/tipsspiel/api/import-from-thesportsdb.php?league_id=1>
-aufrufen, oder einen Button im Admin-Dashboard ergaenzen.
+aufrufen, oder einen Button im Admin-Dashboard ergänzen.
 
 Der Admin kann jederzeit von Hand korrigieren (Resultat eintragen,
-Spiele anlegen, Teams aendern).
+Spiele anlegen, Teams ändern).
 
 ---
 
@@ -103,9 +103,9 @@ benenne ihn um in `tipsspiel`.
 ### 3. Datenbank importieren
 * <http://localhost/phpmyadmin> öffnen
 * Reiter **"Importieren"**
-* Datei `sql/tippspiel.sql` waehlen → **OK**
+* Datei `sql/tippspiel.sql` wählen → **OK**
 
-Das Skript loescht eine evtl. vorhandene DB `tippspiel`, legt sie neu
+Das Skript löscht eine evtl. vorhandene DB `tippspiel`, legt sie neu
 an und fuellt Beispiel-Daten.
 
 Alternativ ueber Konsole:
@@ -123,7 +123,7 @@ const DB_USER = 'root';
 const DB_PASS = '';
 ```
 
-### 5. Im Browser oeffnen
+### 5. Im Browser öffnen
 <http://localhost/tipsspiel/> – mit `admin / admin123` einloggen.
 
 ---
@@ -194,21 +194,21 @@ Im Admin-Dashboard hat jede User-Zeile ein Eingabefeld + Button
 Gruppen-Mitgliedschaften des Users gutgeschrieben.
 
 ## Profil: Hintergrundbild
-Profilseite oeffnen → Button "Hintergrundbild hinzufuegen" rechts neben
-dem Avatar. Datei waehlen (jpg/png/webp/gif, max 4 MB) → wird in
+Profilseite öffnen → Button "Hintergrundbild hinzufügen" rechts neben
+dem Avatar. Datei wählen (jpg/png/webp/gif, max 4 MB) → wird in
 `img/backgrounds/` gespeichert. Solange kein eigenes Bild gesetzt ist,
-bleibt der Standard-Hintergrund. Ueber "Standard wiederherstellen"
-laesst es sich wieder zuruecksetzen.
+bleibt der Standard-Hintergrund. Über "Standard wiederherstellen"
+lässt es sich wieder zurücksetzen.
 
 ---
 
 ## Troubleshooting
 
-| Symptom                                            | Loesung                                                       |
+| Symptom                                            | Lösung                                                       |
 | -------------------------------------------------- | ------------------------------------------------------------- |
 | `DB-Fehler: Unknown DB ...`                        | DB nicht importiert → Schritt 3 nochmals                      |
 | `DB-Fehler: Access denied for user 'root'`         | `config/db.php` anpassen                                      |
-| Login geht nicht trotz `admin / admin123`          | Import nicht vollstaendig → Schritt 3 wiederholen             |
+| Login geht nicht trotz `admin / admin123`          | Import nicht vollständig → Schritt 3 wiederholen             |
 | 404 nach Login                                     | Ordner heisst nicht `tipsspiel` → umbenennen                  |
-| Hintergrundbild laesst sich nicht hochladen        | `img/backgrounds/` muss schreibbar sein (XAMPP normalerweise OK) |
+| Hintergrundbild lässt sich nicht hochladen        | `img/backgrounds/` muss schreibbar sein (XAMPP normalerweise OK) |
 | `import-from-thesportsdb.php` liefert leeren Datenstand | Liga hat keine `api_id`. In `leagues.api_id` muss die TheSportsDB-ID stehen. |

@@ -1,7 +1,20 @@
 <?php
+/**
+ * Tippspiel - Globaler HTML-Header (wird von jeder Page included)
+ * ----------------------------------------------------------------
+ * Enthaelt:
+ *  - Session-Start + Login-Pruefung (require_login)
+ *  - HTML-Doctype, Meta-Tags
+ *  - app.js (vor allen Page-Scripts, damit Tippspiel-Objekt da ist)
+ *  - Optionaler Hintergrund (vom User hochgeladen)
+ *  - Top-Bar mit Avatar + Modus-Switch
+ *  - Haupt-Navigation
+ */
 require_once __DIR__ . '/auth.php';
 $user = require_login();
+// Pages setzen $active vorher, damit der aktuelle Nav-Link markiert wird
 $active = $active ?? '';
+// Optionaler Hintergrund (vom User hochgeladen)
 $bg = $user['background_image']
     ? '/Tippspiel/' . htmlspecialchars($user['background_image'])
     : null;
@@ -17,6 +30,7 @@ $bg = $user['background_image']
 <script src="/Tippspiel/js/app.js?v=2"></script>
 <?php if ($bg): ?>
 <style>
+  /* User-spezifischer Hintergrund mit dunkler Overlay-Schicht */
   body { background-image: linear-gradient(rgba(14,17,22,.85), rgba(14,17,22,.92)),
                             url("<?= $bg ?>");
          background-size: cover; background-attachment: fixed; background-position: center; }
@@ -24,6 +38,7 @@ $bg = $user['background_image']
 <?php endif; ?>
 </head>
 <body>
+<!-- Top-Bar: Avatar links, Brand mittig, Modus-Switch rechts -->
 <header class="topbar">
   <a class="profile-link" href="/Tippspiel/pages/profile.php" title="Profil">
     <span class="avatar"><?= htmlspecialchars(initials($user)) ?></span>
@@ -36,11 +51,12 @@ $bg = $user['background_image']
     <label for="mode">Modus</label>
     <select id="mode">
       <option value="points">Punkte</option>
-      <option value="money">Imaginäres Geld</option>
+      <option value="money">Imaginaeres Geld</option>
     </select>
   </div>
 </header>
 
+<!-- Haupt-Navigation: Gruppen, Rangliste, Sportarten, Admin (nur Admin), Logout -->
 <nav class="mainnav">
   <a href="/Tippspiel/pages/groups.php"      class="<?= $active==='groups'      ? 'active' : '' ?>">Gruppen</a>
   <a href="/Tippspiel/pages/leaderboard.php" class="<?= $active==='leaderboard' ? 'active' : '' ?>">Rangliste</a>

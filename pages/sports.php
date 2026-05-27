@@ -1,4 +1,14 @@
 <?php
+/**
+ * ============================================================
+ * Page: Sportarten / Tippen
+ * ------------------------------------------------------------
+ * Sportart -> Liga -> Tag waehlen und Tipps abgeben.
+ *
+ * Setzt $active fuer das Hervorheben des aktiven Nav-Links und
+ * includiert dann den globalen Header/Footer.
+ * ============================================================
+ */
 $active = 'sports';
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -27,6 +37,8 @@ require_once __DIR__ . '/../includes/header.php';
     </label>
 
     <span class="balance" id="balance" style="display:none"></span>
+
+    <button id="refresh-btn" class="btn" style="display:none;align-self:flex-end" title="Spiele frisch von der API laden">Aktualisieren</button>
   </div>
 
   <div class="tip-progress-label" id="tip-progress-label" style="margin-top:14px"></div>
@@ -34,5 +46,5 @@ require_once __DIR__ . '/../includes/header.php';
 
   <div id="matches"></div>
 </section>
-<script src="/Tippspiel/js/sports.js?v=3"></script>
+<script src="/Tippspiel/js/sports.js?v=5"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

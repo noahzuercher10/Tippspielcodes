@@ -1,8 +1,8 @@
 -- ===========================================================
 -- Tippspiel-App (ZbW Projekt 2608)
--- Datenbank-Schema fuer MySQL / MariaDB
+-- Datenbank-Schema für MySQL / MariaDB
 --
--- Hinweis: Es gibt KEINE teams-Tabelle mehr. Heim-/Auswaerts-
+-- Hinweis: Es gibt KEINE teams-Tabelle mehr. Heim-/Auswärts-
 -- Mannschaften werden direkt aus der TheSportsDB-API gezogen
 -- und nur als Strings in matches gecacht.
 -- ===========================================================
@@ -123,12 +123,12 @@ CREATE TABLE bets (
 
 -- -----------------------------------------------------------
 -- BEISPIELDATEN
--- Default-Passwort fuer alle Beispiel-Accounts: admin123
+-- Default-Passwort für alle Beispiel-Accounts: admin123
 -- -----------------------------------------------------------
 INSERT INTO users (username,email,password_hash,first_name,last_name,role,money_balance) VALUES
- ('admin','admin@tippspiel.local','$2y$10$wH5x3eYpZbQeV8oAIQk2xeyZk8zvDfEJ5DkDlFzj1fE6qw0oZGq2u','Admin','User','admin', 2500.00),
- ('noah', 'noah@example.com',     '$2y$10$wH5x3eYpZbQeV8oAIQk2xeyZk8zvDfEJ5DkDlFzj1fE6qw0oZGq2u','Noah','Zuercher','user', 2500.00),
- ('sinan','sinan@example.com',    '$2y$10$wH5x3eYpZbQeV8oAIQk2xeyZk8zvDfEJ5DkDlFzj1fE6qw0oZGq2u','Sinan','Boss','user',     2500.00);
+ ('admin','admin@tippspiel.local','$2b$10$xeV8JrpyBXsVVkCCzoEPGeKNbTkuSgyeGQ8dRaYEOShi6GecOzTrG','Admin','User','admin', 2500.00),
+ ('noah', 'noah@example.com',     '$2b$10$xeV8JrpyBXsVVkCCzoEPGeKNbTkuSgyeGQ8dRaYEOShi6GecOzTrG','Noah','Zuercher','user', 2500.00),
+ ('sinan','sinan@example.com',    '$2b$10$xeV8JrpyBXsVVkCCzoEPGeKNbTkuSgyeGQ8dRaYEOShi6GecOzTrG','Sinan','Boss','user',     2500.00);
 
 -- Sportarten (api_class = PHP-Klassenname unter includes/sports/)
 INSERT INTO sports (name,type,api_class) VALUES

@@ -1,3 +1,11 @@
+/**
+ * ============================================================
+ * Gruppen-Seite - JS-Controller
+ * ------------------------------------------------------------
+ * Listet meine Gruppen, oeffnet Modals zum Erstellen / Beitreten
+ * und reagiert auf die Gruppen-API in api/groups.php.
+ * ============================================================
+ */
 /* Gruppen: Liste + Modal-Dialoge fuer Erstellen/Beitreten */
 (async () => {
   const list = document.getElementById('groups');

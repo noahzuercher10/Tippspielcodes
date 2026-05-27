@@ -1,4 +1,14 @@
 <?php
+/**
+ * ============================================================
+ * Page: Admin-Dashboard
+ * ------------------------------------------------------------
+ * Statistiken, Sportarten/Ligen anlegen, syncen, Resultate.
+ *
+ * Setzt $active fuer das Hervorheben des aktiven Nav-Links und
+ * includiert dann den globalen Header/Footer.
+ * ============================================================
+ */
 $active = 'admin';
 require_once __DIR__ . '/../includes/auth.php';
 $user = require_admin();      // strikt nur Admin

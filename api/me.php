@@ -1,9 +1,16 @@
 <?php
-/** GET /api/me.php  -> aktueller User (fuer JS-Frontend) */
+/**
+ * GET /api/me.php  -> Daten des aktuell eingeloggten Users (JSON)
+ * ------------------------------------------------------------
+ * Wird vom Frontend gebraucht um z.B. das aktuelle Guthaben
+ * im Geldmodus oder die Initialen anzuzeigen.
+ */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 header('Content-Type: application/json');
+
 $u = require_login();
+
 echo json_encode([
     'id'           => $u['id'],
     'username'     => $u['username'],
@@ -12,6 +19,6 @@ echo json_encode([
     'role'         => $u['role'],
     'points_total' => (int)$u['points_total'],
     'money_balance'=> (float)$u['money_balance'],
-    'max_stake'    => max_stake((float)$u['money_balance']),
-    'initials'     => initials($u),
+    'max_stake'    => max_stake((float)$u['money_balance']),   // berechneter Max-Einsatz
+    'initials'     => initials($u),                            // z.B. "NZ"
 ]);

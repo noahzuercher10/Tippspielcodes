@@ -1,4 +1,14 @@
 <?php
+/**
+ * ============================================================
+ * Page: Startseite
+ * ------------------------------------------------------------
+ * Begruessungsseite mit Quick-Links zu Gruppen / Sportarten.
+ *
+ * Setzt $active fuer das Hervorheben des aktiven Nav-Links und
+ * includiert dann den globalen Header/Footer.
+ * ============================================================
+ */
 $active = 'home';
 require_once __DIR__ . '/../includes/header.php';
 ?>

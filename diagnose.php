@@ -76,7 +76,7 @@ if (in_array('leagues', $tables, true)) {
 }
 
 // 5) PHP-Umfeld
-echo "<h2>5. PHP-Umfeld (fuer API-Calls)</h2>";
+echo "<h2>5. PHP-Umfeld (für API-Calls)</h2>";
 echo "<pre>PHP-Version:        " . PHP_VERSION . "\n";
 echo "cURL:               " . (function_exists('curl_init') ? 'JA' : 'NEIN') . "\n";
 echo "allow_url_fopen:    " . (ini_get('allow_url_fopen') ? 'JA' : 'NEIN') . "\n";
@@ -105,7 +105,7 @@ if (!$doApiTest) {
     require_once __DIR__ . '/includes/sports/SportFactory.php';
     $api = SportFactory::forLeagueId($leagueIdTest);
     if (!$api) {
-        echo '<p class=err>Sport-Klasse nicht gefunden fuer league_id=' . $leagueIdTest . '</p>';
+        echo '<p class=err>Sport-Klasse nicht gefunden für league_id=' . $leagueIdTest . '</p>';
     } else {
         $r = $pdo->prepare('SELECT api_id, name FROM leagues WHERE id = ?');
         $r->execute([$leagueIdTest]);
@@ -137,7 +137,7 @@ if (!$doApiTest) {
             echo '<pre>' . htmlspecialchars(substr($raw, 0, 1500)) . (strlen($raw) > 1500 ? "\n... (gekuerzt)" : '') . '</pre>';
         }
 
-        // syncLeague forciert ausloesen
+        // syncLeague forciert auslösen
         echo '<h3>Forcierter Sync via SportApi-Klasse:</h3>';
         try {
             $stats = $api->syncLeague($leagueIdTest, (string)$L['api_id']);

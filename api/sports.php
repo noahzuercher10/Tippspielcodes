@@ -1,19 +1,33 @@
 <?php
 /**
+ * ============================================================
  * GET /api/sports.php
+ * ------------------------------------------------------------
  * Liefert alle verfuegbaren Sportarten als JSON.
- * Funktioniert mit altem UND neuem DB-Schema:
- *  - Falls die Spalte api_class noch nicht existiert (altes SQL),
- *    wird sie automatisch ergänzt und mit Standardwerten gefüllt.
+ *
+ * Antwortbeispiel:
+ *   [{"id":1,"name":"Fussball","type":"team","api_class":"FootballSport","icon":null}, ...]
+ *
+ * Wird im Frontend benutzt, um das Sportarten-Dropdown
+ * auf der Sportarten- und Admin-Seite zu fuellen.
+ *
+ * Zusatz: Die Datei migriert die DB sanft - falls Spalten
+ * fehlen (alte Installation), werden sie hier nachgeruestet,
+ * damit das System ohne SQL-Reimport laeuft.
+ * ============================================================
  */
 require_once __DIR__ . '/../includes/auth.php';
 header('Content-Type: application/json');
-require_login();
+require_login();                              // nur eingeloggte User
 
 $pdo = db();
 
-// 1) Pruefen ob die Spalte api_class existiert; wenn nicht: nachruesten.
+// ------------------------------------------------------------
+// 1) Soft-Migration: fehlende Spalten dazu ergaenzen, damit
+//    aelteste Installationen ohne SQL-Reimport funktionieren.
+// ------------------------------------------------------------
 try {
+    // Pruefen ob sports.api_class existiert
     $hasCol = (bool)$pdo->query(
         "SELECT COUNT(*) FROM information_schema.COLUMNS
          WHERE TABLE_SCHEMA = DATABASE()
@@ -22,8 +36,8 @@ try {
     )->fetchColumn();
 
     if (!$hasCol) {
+        // Spalte nachruesten und mit den Standard-Klassen vorbefuellen
         $pdo->exec("ALTER TABLE sports ADD COLUMN api_class VARCHAR(60) NOT NULL DEFAULT 'FootballSport'");
-        // Defaults setzen, damit die Vererbung funktioniert
         $map = [
             'Fussball'   => 'FootballSport',
             'Eishockey'  => 'IceHockeySport',
@@ -37,7 +51,7 @@ try {
         }
     }
 
-    // last_sync nachruesten falls noch nicht da
+    // Pruefen ob leagues.last_sync existiert (fuer Cache-TTL)
     $hasSync = (bool)$pdo->query(
         "SELECT COUNT(*) FROM information_schema.COLUMNS
          WHERE TABLE_SCHEMA = DATABASE()
@@ -48,10 +62,13 @@ try {
         $pdo->exec("ALTER TABLE leagues ADD COLUMN last_sync DATETIME DEFAULT NULL");
     }
 } catch (Throwable $e) {
-    // Migrationsfehler nicht fatal werden lassen - wir lesen sport-Liste auch ohne api_class
+    // Migrationsfehler nicht fatal werden lassen - wir fallen
+    // im naechsten Schritt einfach auf einen Query ohne api_class zurueck
 }
 
-// 2) Sportarten lesen
+// ------------------------------------------------------------
+// 2) Sportarten lesen und zurueckgeben
+// ------------------------------------------------------------
 try {
     $rows = $pdo->query(
         'SELECT id, name, type,
@@ -61,7 +78,7 @@ try {
          ORDER BY id'
     )->fetchAll();
 } catch (Throwable $e) {
-    // Fallback ohne api_class
+    // Fallback ohne api_class (sollte nach Migration nicht mehr passieren)
     $rows = $pdo->query('SELECT id, name, type, "" AS api_class, icon FROM sports ORDER BY id')->fetchAll();
 }
 
