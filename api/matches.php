@@ -36,11 +36,11 @@ if (!$api) {
 }
 
 try {
-    // Sync: für vergangene Tage nur wenn force=1 explizit gesetzt
+    // Sync: Saisonübersicht + Zukunft immer frisch halten; Vergangenheit nur mit force=1
     $isPast = strtotime($date) < strtotime(date('Y-m-d'));
     if ($force) {
         $api->ensureFresh($leagueId, true);
-    } elseif (!$isPast) {
+    } elseif ($showAll || !$isPast) {
         $api->ensureFresh($leagueId);
     }
 

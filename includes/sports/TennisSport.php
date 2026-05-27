@@ -97,13 +97,21 @@ class TennisSport extends SportApi
         $hs = $ev['intHomeScore'] ?? null;
         $as = $ev['intAwayScore'] ?? null;
 
+        $homeTeamId = (string)($ev['idHomeTeam'] ?? '');
+        $awayTeamId = (string)($ev['idAwayTeam'] ?? '');
+        $homeBadge  = $this->normBadge($ev['strHomeTeamBadge'] ?? null)
+                   ?: $this->normBadge($ev['strThumb'] ?? null)
+                   ?: $this->lookupTeamBadge($homeTeamId);
+        $awayBadge  = $this->normBadge($ev['strAwayTeamBadge'] ?? null)
+                   ?: $this->lookupTeamBadge($awayTeamId);
+
         return [
             'home_name'    => $home,
             'away_name'    => $away,
             'home_short'   => $this->shortName($home),
             'away_short'   => $this->shortName($away),
-            'home_badge'   => $this->normBadge($ev['strHomeTeamBadge'] ?? null),
-            'away_badge'   => $this->normBadge($ev['strAwayTeamBadge'] ?? null),
+            'home_badge'   => $homeBadge,
+            'away_badge'   => $awayBadge,
             'datetime'     => trim($date . ' ' . $time),
             'home_score'   => ($hs === null || $hs === '') ? null : (int)$hs,
             'away_score'   => ($as === null || $as === '') ? null : (int)$as,

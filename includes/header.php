@@ -25,7 +25,7 @@ if (!empty($user['profile_picture'])) {
 
 <header class="topbar">
   <a class="profile-link" href="/Tippspiel/pages/profile.php" title="Profil">
-    <span class="avatar"><?= $avatarHtml ?></span>
+    <span class="avatar" data-initials="<?= htmlspecialchars(initials($user)) ?>"><?= $avatarHtml ?></span>
     <span class="username"><?= htmlspecialchars($user['username']) ?></span>
   </a>
 

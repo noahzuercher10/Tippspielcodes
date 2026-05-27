@@ -37,6 +37,9 @@ abstract class SportApi
     /** Letzter API-Fehler (fuer Diagnose) */
     public ?string $lastError = null;
 
+    /** In-Session-Cache: teamId → Badge-URL (verhindert doppelte API-Calls) */
+    protected array $teamBadgeCache = [];
+
     public function __construct(int $sportId, string $sportName)
     {
         $this->sportId   = $sportId;
@@ -205,8 +208,15 @@ abstract class SportApi
 
         $hs = $ev['intHomeScore'] ?? null;
         $as = $ev['intAwayScore'] ?? null;
-        $homeBadge = $this->normBadge($ev['strHomeTeamBadge'] ?? ($ev['strThumbH'] ?? null));
-        $awayBadge = $this->normBadge($ev['strAwayTeamBadge'] ?? ($ev['strThumbA'] ?? null));
+
+        // Badge: direkt aus Event-Daten, sonst via lookupteam (gecacht)
+        $homeTeamId = (string)($ev['idHomeTeam'] ?? '');
+        $awayTeamId = (string)($ev['idAwayTeam'] ?? '');
+        $homeBadge = $this->normBadge($ev['strHomeTeamBadge'] ?? null)
+                  ?: $this->lookupTeamBadge($homeTeamId);
+        $awayBadge = $this->normBadge($ev['strAwayTeamBadge'] ?? null)
+                  ?: $this->lookupTeamBadge($awayTeamId);
+
         return [
             'home_name'    => $home,
             'away_name'    => $away,
@@ -224,6 +234,26 @@ abstract class SportApi
     protected function shortName(string $name): string
     {
         return strtoupper(mb_substr(preg_replace('/\s+/', '', $name), 0, 3));
+    }
+
+    /**
+     * Holt das Team-Wappen via lookupteam.php wenn kein Badge-URL direkt im Event.
+     * Cached pro Sync-Lauf; 80ms Throttle pro neuem Aufruf.
+     */
+    protected function lookupTeamBadge(string $teamId): ?string
+    {
+        if (!$teamId) return null;
+        if (array_key_exists($teamId, $this->teamBadgeCache)) {
+            return $this->teamBadgeCache[$teamId];
+        }
+        usleep(80000);
+        $data  = $this->tsdbCall('lookupteam.php?id=' . urlencode($teamId));
+        $badge = $this->normBadge(
+            $data['teams'][0]['strTeamBadge']
+            ?? ($data['teams'][0]['strTeamLogo'] ?? null)
+        );
+        $this->teamBadgeCache[$teamId] = $badge;
+        return $badge;
     }
 
     protected function normBadge(?string $url): ?string
@@ -249,7 +279,7 @@ abstract class SportApi
             $pdo->prepare(
                 'UPDATE matches SET league_id=?, home_name=?, away_name=?,
                     home_short=?, away_short=?, match_datetime=?,
-                    home_badge=COALESCE(?,home_badge), away_badge=COALESCE(?,away_badge)
+                    home_badge=IFNULL(?,home_badge), away_badge=IFNULL(?,away_badge)
                   WHERE id=?'
             )->execute([$leagueId, $n['home_name'], $n['away_name'],
                         $n['home_short'], $n['away_short'], $n['datetime'],
@@ -276,7 +306,7 @@ abstract class SportApi
             $pdo->prepare(
                 'UPDATE matches SET home_name=?, away_name=?, home_short=?, away_short=?,
                     home_score=?, away_score=?, status="finished", match_datetime=?,
-                    home_badge=COALESCE(?,home_badge), away_badge=COALESCE(?,away_badge)
+                    home_badge=IFNULL(?,home_badge), away_badge=IFNULL(?,away_badge)
                   WHERE id=?'
             )->execute([$n['home_name'], $n['away_name'], $n['home_short'], $n['away_short'],
                         $n['home_score'], $n['away_score'], $n['datetime'],

@@ -10,7 +10,7 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
   <h2>Profil</h2>
 
   <div class="profile-head">
-    <span class="avatar profile-avatar">
+    <span class="avatar profile-avatar" data-initials="<?= htmlspecialchars(initials($user)) ?>">
       <?php if ($hasPic): ?>
         <img src="<?= $picUrl ?>" alt="Profilbild">
       <?php else: ?>
@@ -99,6 +99,27 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
   const removeBtn = document.getElementById('pic-remove');
   const themeToggle = document.getElementById('theme-toggle');
 
+  function setAvatarUrl(url) {
+    // Update all avatar circles on the page (topbar + profile) without reload
+    document.querySelectorAll('.avatar').forEach(av => {
+      let img = av.querySelector('img');
+      if (url) {
+        if (!img) {
+          img = document.createElement('img');
+          img.alt = 'Profilbild';
+          av.innerHTML = '';
+          av.appendChild(img);
+        }
+        img.src = url + '?t=' + Date.now();
+      } else {
+        if (img) img.remove();
+        // restore initials fallback from data attribute
+        const initials = av.dataset.initials || '';
+        av.textContent = initials;
+      }
+    });
+  }
+
   fileInput.addEventListener('change', async () => {
     if (!fileInput.files.length) return;
     const fd = new FormData();
@@ -108,8 +129,10 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
         { method: 'POST', credentials: 'same-origin', body: fd });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
+      setAvatarUrl(data.url);
       Tippspiel.toast('Profilbild gespeichert!', 'ok');
-      setTimeout(() => location.reload(), 600);
+      // Show "Bild entfernen" button if not already visible
+      if (!removeBtn) location.reload();
     } catch (e) { Tippspiel.toast(e.message, 'error'); }
   });
 
@@ -120,8 +143,9 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
       const r = await fetch('/Tippspiel/api/upload-avatar.php',
         { method: 'POST', credentials: 'same-origin', body: fd });
       if (r.ok) {
+        setAvatarUrl(null);
+        removeBtn.remove();
         Tippspiel.toast('Profilbild entfernt', 'ok');
-        setTimeout(() => location.reload(), 500);
       }
     });
   }

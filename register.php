@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <title>Tippspiel - Registrieren</title>
-<link rel="stylesheet" href="/Tippspiel/css/style.css">
+<link rel="stylesheet" href="/Tippspiel/css/style.css?v=5">
 </head>
 <body class="auth-body">
   <div class="auth-card">

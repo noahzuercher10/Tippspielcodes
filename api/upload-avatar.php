@@ -57,4 +57,5 @@ if (!move_uploaded_file($f['tmp_name'], $abs)) {
 db()->prepare('UPDATE users SET profile_picture = ? WHERE id = ?')
     ->execute([$rel, $user['id']]);
 
-echo json_encode(['ok' => true, 'path' => $rel]);
+$url = '/Tippspiel/' . $rel;
+echo json_encode(['ok' => true, 'path' => $rel, 'url' => $url]);
