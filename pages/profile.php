@@ -10,11 +10,13 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
   <h2>Profil</h2>
 
   <div class="profile-head">
-    <?php if ($hasPic): ?>
-      <img src="<?= $picUrl ?>" alt="Profilbild" class="profile-avatar" style="object-fit:cover">
-    <?php else: ?>
-      <span class="avatar profile-avatar"><?= htmlspecialchars(initials($user)) ?></span>
-    <?php endif; ?>
+    <span class="avatar profile-avatar">
+      <?php if ($hasPic): ?>
+        <img src="<?= $picUrl ?>" alt="Profilbild">
+      <?php else: ?>
+        <?= htmlspecialchars(initials($user)) ?>
+      <?php endif; ?>
+    </span>
 
     <div class="profile-info">
       <strong style="font-size:18px"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></strong>

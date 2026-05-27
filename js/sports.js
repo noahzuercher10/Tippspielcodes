@@ -9,8 +9,10 @@
   const balanceEl  = document.getElementById('balance');
   const matchesEl  = document.getElementById('matches');
   const refreshBtn = document.getElementById('refresh-btn');
+  const seasonBtn  = document.getElementById('season-btn');
   const progressBar   = document.getElementById('tip-progress-bar');
   const progressLabel = document.getElementById('tip-progress-label');
+  let seasonMode = false;
 
   // Sportarten laden
   let sports = [];
@@ -54,6 +56,11 @@
   daySel.addEventListener('change', () => loadMatches());
   groupSel.addEventListener('change', () => loadMatches());
   if (refreshBtn) refreshBtn.addEventListener('click', () => loadMatches(true));
+  if (seasonBtn) seasonBtn.addEventListener('click', () => {
+    seasonMode = !seasonMode;
+    seasonBtn.textContent = seasonMode ? 'Tagesansicht' : 'Saisonübersicht';
+    loadMatches();
+  });
 
   async function onSportChange() {
     leagueWrap.style.display = 'none';
@@ -84,6 +91,8 @@
     dayWrap.style.display   = 'inline-flex';
     groupWrap.style.display = 'inline-flex';
     if (refreshBtn) refreshBtn.style.display = 'inline-block';
+    if (seasonBtn)  seasonBtn.style.display  = 'inline-block';
+    seasonMode = false;
     loadMatches();
   }
 
@@ -99,9 +108,10 @@
     });
     if (groupSel.value) params.set('group_id', groupSel.value);
     if (force) params.set('force', '1');
+    if (seasonMode) params.set('all', '1');
     try {
       const data = await Tippspiel.get('/Tippspiel/api/matches.php?' + params);
-      renderMatches(data);
+      renderMatches(data, seasonMode);
     } catch (e) {
       Tippspiel.toast('Fehler: ' + e.message, 'error');
     }
@@ -116,7 +126,7 @@
     return `<span class="team-badge-placeholder">${shortName || '?'}</span>`;
   }
 
-  function renderMatches({ matches, total_users, hint, next_matches }) {
+  function renderMatches({ matches, total_users, hint, next_matches }, isSeason = false) {
     if (!matches.length) {
       let html = '<div style="text-align:center;padding:28px 0">';
       html += `<p style="color:var(--muted)">${hint || 'Keine Spiele an diesem Tag.'}</p>`;
@@ -147,79 +157,105 @@
     progressBar.style.width = pct + '%';
     progressLabel.textContent = `${totalTips} Tipps abgegeben (${pct}%)`;
 
-    // Prüfen ob es sich um Einzelsport handelt (Tennis / F1)
     const selectedSport = sports.find(s => s.id == sportSel.value);
     const isSingle = selectedSport && selectedSport.type === 'single';
+    const now = Date.now();
 
-    const mode = Tippspiel.getMode();
-    matchesEl.innerHTML = matches.map(m => {
-      const start  = new Date(m.match_datetime);
-      const closed = m.status !== 'upcoming' || start.getTime() <= Date.now();
-      const result = (m.home_score !== null && m.away_score !== null)
-        ? `${m.home_score} : ${m.away_score}` : '';
-
-      const homeImg = teamImg(m.home_badge, m.home_short || m.home_name.slice(0,3), isSingle);
-      const awayImg = teamImg(m.away_badge, m.away_short || m.away_name.slice(0,3), isSingle);
-
-      const statusBadge = closed
-        ? `<span class="badge">${m.status === 'finished' ? 'Beendet' : 'Gestartet'}</span>`
-        : `<button class="btn save small">Speichern</button>`;
-
-      if (mode === 'points') {
-        const tipH = m.my_bet ? m.my_bet.tip_home : '';
-        const tipA = m.my_bet ? m.my_bet.tip_away : '';
-        return `
-          <div class="match" data-id="${m.id}">
-            <div class="match-team">
-              ${homeImg}
-              <span class="tname">${m.home_name}</span>
-            </div>
-            <input type="number" min="0" class="tipH" value="${tipH ?? ''}" ${closed ? 'disabled' : ''}>
-            <input type="number" min="0" class="tipA" value="${tipA ?? ''}" ${closed ? 'disabled' : ''}>
-            <div class="match-team away">
-              <span class="tname">${m.away_name}</span>
-              ${awayImg}
-            </div>
-            <div>
-              <div class="meta">${start.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'})} ${result ? '· '+result : ''}</div>
-              ${statusBadge}
-            </div>
-          </div>`;
-      } else {
-        const tw    = m.my_bet ? m.my_bet.tip_winner : '';
-        const stake = m.my_bet ? Number(m.my_bet.stake).toFixed(2) : '';
-        const sel   = v => tw === v ? 'selected' : '';
-        return `
-          <div class="match money" data-id="${m.id}">
-            <div class="match-team">
-              ${homeImg}
-              <span class="tname">${m.home_name}</span>
-            </div>
-            <div class="winner-row">
-              <select class="winner" ${closed ? 'disabled' : ''}>
-                <option value="">– Sieger –</option>
-                <option value="home" ${sel('home')}>Heimsieg</option>
-                <option value="draw" ${sel('draw')}>Unentschieden</option>
-                <option value="away" ${sel('away')}>Auswärtssieg</option>
-              </select>
-              <input type="number" step="0.01" min="10" max="500"
-                     class="stake" placeholder="Einsatz" value="${stake}" ${closed ? 'disabled' : ''}>
-            </div>
-            <div class="match-team away">
-              <span class="tname">${m.away_name}</span>
-              ${awayImg}
-            </div>
-            <div>
-              <div class="meta">${start.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'})} ${result ? '· '+result : ''}</div>
-              ${statusBadge}
-            </div>
-          </div>`;
+    // Saisonübersicht: nach Datum gruppieren
+    if (isSeason) {
+      const byDate = {};
+      matches.forEach(m => {
+        const d = m.match_datetime.slice(0, 10);
+        (byDate[d] = byDate[d] || []).push(m);
+      });
+      let html = '';
+      for (const [d, ms] of Object.entries(byDate)) {
+        const label = new Date(d).toLocaleDateString('de-CH', {weekday:'short', day:'numeric', month:'short'});
+        html += `<div style="margin:14px 0 4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">${label}</div>`;
+        html += ms.map(m => renderMatchRow(m, isSingle, now)).join('');
       }
-    }).join('');
+      matchesEl.innerHTML = html || '<p style="color:var(--muted);padding:16px 0">Keine Spiele vorhanden. Klicke auf "Aktualisieren".</p>';
+    } else {
+      matchesEl.innerHTML = matches.map(m => renderMatchRow(m, isSingle, now)).join('');
+    }
 
     matchesEl.querySelectorAll('.save').forEach(btn =>
       btn.addEventListener('click', () => saveTip(btn.closest('.match')))
     );
+  }
+
+  function renderMatchRow(m, isSingle, now) {
+    const mode   = Tippspiel.getMode();
+    const start  = new Date(m.match_datetime);
+    const closed = m.status !== 'upcoming' || start.getTime() <= now;
+    const result = (m.home_score !== null && m.away_score !== null)
+      ? `${m.home_score} : ${m.away_score}` : '';
+
+    const homeImg = teamImg(m.home_badge, m.home_short || m.home_name.slice(0,3), isSingle);
+    const awayImg = teamImg(m.away_badge, m.away_short || m.away_name.slice(0,3), isSingle);
+
+    const timeStr = start.toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+    let statusEl;
+    if (m.status === 'finished' || (start.getTime() <= now && m.status !== 'upcoming')) {
+      statusEl = result
+        ? `<span class="result-score">${result}</span>`
+        : `<span class="badge">Beendet</span>`;
+    } else if (closed) {
+      statusEl = `<span class="badge">Läuft</span>`;
+    } else {
+      statusEl = `<button class="btn save small">Speichern</button>`;
+    }
+
+    if (mode === 'points') {
+      const tipH = m.my_bet ? m.my_bet.tip_home : '';
+      const tipA = m.my_bet ? m.my_bet.tip_away : '';
+      return `
+        <div class="match" data-id="${m.id}">
+          <div class="match-team">
+            ${homeImg}
+            <span class="tname">${m.home_name}</span>
+          </div>
+          <input type="number" min="0" class="tipH" value="${tipH ?? ''}" ${closed ? 'disabled' : ''}>
+          <input type="number" min="0" class="tipA" value="${tipA ?? ''}" ${closed ? 'disabled' : ''}>
+          <div class="match-team away">
+            <span class="tname">${m.away_name}</span>
+            ${awayImg}
+          </div>
+          <div>
+            <div class="meta">${timeStr}</div>
+            ${statusEl}
+          </div>
+        </div>`;
+    } else {
+      const tw    = m.my_bet ? m.my_bet.tip_winner : '';
+      const stake = m.my_bet ? Number(m.my_bet.stake).toFixed(2) : '';
+      const sel   = v => tw === v ? 'selected' : '';
+      return `
+        <div class="match money" data-id="${m.id}">
+          <div class="match-team">
+            ${homeImg}
+            <span class="tname">${m.home_name}</span>
+          </div>
+          <div class="winner-row">
+            <select class="winner" ${closed ? 'disabled' : ''}>
+              <option value="">– Sieger –</option>
+              <option value="home" ${sel('home')}>Heimsieg</option>
+              <option value="draw" ${sel('draw')}>Unentschieden</option>
+              <option value="away" ${sel('away')}>Auswärtssieg</option>
+            </select>
+            <input type="number" step="0.01" min="10" max="500"
+                   class="stake" placeholder="Einsatz" value="${stake}" ${closed ? 'disabled' : ''}>
+          </div>
+          <div class="match-team away">
+            <span class="tname">${m.away_name}</span>
+            ${awayImg}
+          </div>
+          <div>
+            <div class="meta">${timeStr}</div>
+            ${statusEl}
+          </div>
+        </div>`;
+    }
   }
 
   async function saveTip(row) {

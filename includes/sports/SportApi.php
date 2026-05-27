@@ -126,9 +126,6 @@ abstract class SportApi
         $add($this->fetchPastEvents($apiLeagueId),     'past');
 
         // -------- Verarbeiten --------
-        // - max-Datum wird gehalten
-        // - Vergangene Spiele duerfen NUR aktualisiert werden (fuer Resultate);
-        //   neue past-Events werden nicht eingefuegt -> "nur Zukunft anzeigen".
         $now   = time();
         $maxTs = strtotime($this->maxDate . ' 23:59:59');
         $checkExist = $pdo->prepare('SELECT id FROM matches WHERE api_event_id = ?');
@@ -140,20 +137,15 @@ abstract class SportApi
             if ($ts === false || $ts > $maxTs) continue;
 
             $isPast = $ts < $now;
-            if ($isPast) {
-                // Nur weiter verarbeiten wenn das Spiel bereits in der DB liegt
-                // (dann brauchen wir das Resultat).
-                $checkExist->execute([$n['api_event_id']]);
-                if (!$checkExist->fetchColumn()) continue;
-            }
-
+            // Vergangene Matches: IMMER verarbeiten (Insert wenn neu, Update wenn vorhanden)
+            // So wird die Saisonhistorie beim force-Sync vollständig gefüllt.
             if ($n['home_score'] !== null && $n['away_score'] !== null) {
                 $matchId = $this->upsertFinished($leagueId, $n);
                 if ($matchId) {
                     evaluate_match($matchId);
                     $updated++;
                 }
-            } else {
+            } elseif (!$isPast) {
                 $imported += $this->upsertUpcoming($leagueId, $n) ? 1 : 0;
             }
         }

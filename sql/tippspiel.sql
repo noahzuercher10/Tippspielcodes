@@ -1,10 +1,7 @@
 -- ===========================================================
--- Tippspiel-App (ZbW Projekt 2608)
--- Datenbank-Schema für MySQL / MariaDB
---
--- Hinweis: Es gibt KEINE teams-Tabelle mehr. Heim-/Auswärts-
--- Mannschaften werden direkt aus der TheSportsDB-API gezogen
--- und nur als Strings in matches gecacht.
+-- Tippspiel – vollständiges DB-Schema v2
+-- MySQL / MariaDB (utf8mb4)
+-- Passwort für Beispiel-Accounts: admin123
 -- ===========================================================
 
 DROP DATABASE IF EXISTS tippspiel;
@@ -23,27 +20,20 @@ CREATE TABLE users (
     last_name         VARCHAR(60)  NOT NULL,
     role              ENUM('user','admin') NOT NULL DEFAULT 'user',
     points_total      INT NOT NULL DEFAULT 0,
-    money_balance     DECIMAL(12,2) NOT NULL DEFAULT 2500.00,  -- Startkapital
-    background_image  VARCHAR(255) DEFAULT NULL,
+    money_balance     DECIMAL(12,2) NOT NULL DEFAULT 2500.00,
     profile_picture   VARCHAR(255) DEFAULT NULL,
     theme             ENUM('light','dark') NOT NULL DEFAULT 'light',
     created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- -----------------------------------------------------------
--- Sportarten (jede Sportart bekommt eine PHP-Klasse)
--- -----------------------------------------------------------
 CREATE TABLE sports (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(60) NOT NULL UNIQUE,
     type       ENUM('team','single') NOT NULL DEFAULT 'team',
-    api_class  VARCHAR(60) NOT NULL,           -- Name der PHP-Klasse (Vererbung)
+    api_class  VARCHAR(60) NOT NULL,
     icon       VARCHAR(80) DEFAULT NULL
 ) ENGINE=InnoDB;
 
--- -----------------------------------------------------------
--- Ligen / Wettbewerbe (api_id = TheSportsDB-Liga-ID)
--- -----------------------------------------------------------
 CREATE TABLE leagues (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     sport_id   INT NOT NULL,
@@ -54,9 +44,6 @@ CREATE TABLE leagues (
     FOREIGN KEY (sport_id) REFERENCES sports(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- -----------------------------------------------------------
--- Spiele (Cache aus der API, KEINE Team-Foreign-Keys mehr)
--- -----------------------------------------------------------
 CREATE TABLE matches (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     league_id       INT NOT NULL,
@@ -76,9 +63,6 @@ CREATE TABLE matches (
     FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- -----------------------------------------------------------
--- Gruppen
--- -----------------------------------------------------------
 CREATE TABLE groups_t (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     name        VARCHAR(80)  NOT NULL,
@@ -102,9 +86,6 @@ CREATE TABLE group_members (
     FOREIGN KEY (user_id)  REFERENCES users(id)    ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- -----------------------------------------------------------
--- Tipps
--- -----------------------------------------------------------
 CREATE TABLE bets (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     user_id         INT NOT NULL,
@@ -125,10 +106,7 @@ CREATE TABLE bets (
     FOREIGN KEY (group_id) REFERENCES groups_t(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- -----------------------------------------------------------
--- BEISPIELDATEN
--- Default-Passwort für alle Beispiel-Accounts: admin123
--- -----------------------------------------------------------
+-- Beispieldaten
 INSERT INTO users (username,email,password_hash,first_name,last_name,role,money_balance) VALUES
  ('admin','admin@tippspiel.local','$2b$10$xeV8JrpyBXsVVkCCzoEPGeKNbTkuSgyeGQ8dRaYEOShi6GecOzTrG','Admin','User','admin', 2500.00),
  ('noah', 'noah@example.com',     '$2b$10$xeV8JrpyBXsVVkCCzoEPGeKNbTkuSgyeGQ8dRaYEOShi6GecOzTrG','Noah','Zuercher','user', 2500.00),
@@ -162,11 +140,7 @@ INSERT INTO leagues (sport_id,name,season,api_id) VALUES
  -- Formel 1
  (5,'Formel 1 Saison',        '2026','4370');
 
--- KEINE matches/teams Beispieldaten mehr!
--- Spiele werden live aus TheSportsDB geholt, sobald eine Liga
--- ausgewaehlt wird.
-
--- Beispielgruppen (Liga 1 = Super League)
+-- Gruppen
 INSERT INTO groups_t (name,join_code,mode,league_id,admin_id) VALUES
  ('Big Sinan Crew','SINAN26','points', 1, 2),
  ('Cash Kings',    'MONEY01','money',  1, 3);

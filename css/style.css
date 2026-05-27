@@ -106,13 +106,16 @@ body.dark .auth-body {
 .profile-link:hover { text-decoration: none; opacity: .8; }
 
 .avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: var(--primary); color: #fff;
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  border-radius: 50%; background: var(--primary); color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 13px; flex-shrink: 0;
-  overflow: hidden;
+  overflow: hidden; position: relative;
 }
-.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
 .username { color: var(--muted); font-size: 14px; }
 
 .mode-switch label { color: var(--muted); margin-right: 6px; font-size: 13px; }
@@ -152,8 +155,13 @@ body.dark .auth-body {
   margin-bottom: 18px; flex-wrap: wrap;
 }
 .profile-avatar {
-  width: 96px; height: 96px; font-size: 32px; border-radius: 50%;
-  flex-shrink: 0;
+  width: 96px; height: 96px; min-width: 96px; min-height: 96px;
+  font-size: 32px; border-radius: 50%; overflow: hidden;
+  flex-shrink: 0; display: inline-flex; align-items: center;
+  justify-content: center; background: var(--primary); color: #fff;
+}
+.profile-avatar img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
 .profile-info { display: flex; flex-direction: column; gap: 6px; }
 .profile-pic-section { display: flex; flex-direction: column; gap: 8px; }
@@ -223,6 +231,11 @@ body.dark .auth-body {
 .match .save { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
 .match .save:hover { opacity: .88; }
 .match .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.result-score {
+  font-weight: 700; font-size: 15px; color: var(--text);
+  padding: 2px 8px; background: var(--surface-2);
+  border-radius: 6px; border: 1px solid var(--border);
+}
 
 /* ---- Dropdowns ---- */
 .dropdowns { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }

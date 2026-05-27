@@ -19,7 +19,8 @@ require_once __DIR__ . '/../includes/header.php';
       <select id="group"><option value="">Ohne Gruppe</option></select>
     </label>
     <span class="balance" id="balance" style="display:none"></span>
-    <button id="refresh-btn" class="btn" style="display:none;align-self:flex-end">Aktualisieren</button>
+    <button id="refresh-btn" class="btn"    style="display:none;align-self:flex-end">Aktualisieren</button>
+    <button id="season-btn"  class="btn"    style="display:none;align-self:flex-end">Saisonübersicht</button>
   </div>
 
   <div class="tip-progress-label" id="tip-progress-label" style="margin-top:14px"></div>
