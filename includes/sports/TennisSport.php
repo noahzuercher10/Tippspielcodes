@@ -37,7 +37,10 @@ class TennisSport extends SportApi
     // ----------------------------------------------------------------
 
     /**
-     * Überschreibt die Basisklasse: holt Tennis-Events per eventsday.php.
+     * Überschreibt die Basisklasse: synct den Tag via eventsday.php
+     * (gefiltert nach Turnier-Keywords) und liest dann aus der DB.
+     * Strategie A: eventsday mit &s=Tennis.
+     * Strategie B: eventsday ohne Filter, manuell nach 'tennis' filtern.
      */
     public function getMatchesForDay(int $leagueId, string $date): array
     {
@@ -89,6 +92,15 @@ class TennisSport extends SportApi
     // syncDay: ein Datum via eventsday.php
     // ----------------------------------------------------------------
 
+    /**
+     * Synct alle Tennis-Matches eines bestimmten Tages in die DB.
+     * Wird übersprungen wenn schon Einträge für diesen Tag vorhanden
+     * und $force = false (verhindert doppelte API-Calls).
+     *
+     * @param int    $leagueId  Interne Liga-ID
+     * @param string $date      YYYY-MM-DD
+     * @param bool   $force     true = immer syncen, auch wenn bereits Daten da
+     */
     private function syncDay(int $leagueId, string $date, bool $force = false): void
     {
         $pdo = db();
@@ -235,6 +247,11 @@ class TennisSport extends SportApi
     // Helpers
     // ----------------------------------------------------------------
 
+    /**
+     * Gibt die Keyword-Liste für eine Liga zurück.
+     * Bei 'search:'-Präfix in der api_id wird der Suchbegriff
+     * als Key in KEYWORDS nachgeschlagen.
+     */
     private function keywordsForLeague(int $leagueId): array
     {
         $row = db()->prepare('SELECT api_id FROM leagues WHERE id = ?');
@@ -244,6 +261,10 @@ class TennisSport extends SportApi
         return self::KEYWORDS[$term] ?? [strtolower($term)];
     }
 
+    /**
+     * Prüft ob ein Liga-Eintrag von TheSportsDB zu den Turnier-Keywords passt.
+     * Vergleicht alle relevanten Felder (Name, Alternate, Sport, Land).
+     */
     private function leagueMatchesKeywords(array $league, array $keywords): bool
     {
         $hay = strtolower(implode(' ', array_filter([
@@ -258,6 +279,10 @@ class TennisSport extends SportApi
         return false;
     }
 
+    /**
+     * Prüft ob ein einzelnes Event zu den Turnier-Keywords passt.
+     * Durchsucht Event-Name, Dateiname, Liga, Saison, Ort und Stadt.
+     */
     private function eventMatchesKeywords(array $ev, array $keywords): bool
     {
         $hay = strtolower(implode(' ', array_filter([

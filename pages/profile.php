@@ -1,4 +1,19 @@
 <?php
+/**
+ * pages/profile.php – Profilseite
+ *
+ * Zeigt:
+ *  - Avatar + Benutzerdaten (Name, Username, E-Mail)
+ *  - Upload/Entfernen-Button für Profilbild (via api/upload-avatar.php)
+ *  - Statistik-Tabelle: Punkte, Guthaben, Dabei-seit
+ *  - Theme-Schalter Light/Dark (via api/update-theme.php)
+ *  - Letzte 25 Tipps mit Datum, Spiel, Tipp, Ergebnis, Modus und Ertrag
+ *    – F1-Tipps zeigen Fahrernamen statt "Unentschieden / 0:0"
+ *
+ * Inline-JavaScript:
+ *  - setAvatarUrl(): aktualisiert alle Avatar-Bubbles ohne Seiten-Reload
+ *  - Theme-Toggle: sendet POST an api/update-theme.php + toggled body.dark
+ */
 $active = 'profile';
 require_once __DIR__ . '/../includes/header.php';
 

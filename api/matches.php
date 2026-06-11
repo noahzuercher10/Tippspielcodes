@@ -1,14 +1,31 @@
 <?php
 /**
- * GET /api/matches.php
+ * GET /api/matches.php – Spiele einer Liga für einen Tag (oder die ganze Saison)
  *
- * Parameter:
- *   league_id  - Pflicht
- *   date       - YYYY-MM-DD (default: heute)
- *   mode       - "points" | "money" (default: points)
- *   group_id   - optional
- *   force      - optional: Cache umgehen + neu syncen
- *   all        - optional: alle Spiele der Liga (Saisonübersicht)
+ * Query-Parameter:
+ *   league_id  int              Pflicht – interne Liga-ID
+ *   date       YYYY-MM-DD       optional, default: heute
+ *   mode       points|money     optional, default: points
+ *   group_id   int              optional – filtert my_bet auf diese Gruppe
+ *   force      1                optional – Cache umgehen, Sync erzwingen
+ *   all        1                optional – alle Spiele der Saison (Saisonübersicht)
+ *
+ * Antwort-Felder pro Match:
+ *   + my_bet        object|null  Tipp des eingeloggten Users (oder null)
+ *   + tip_count     int          Anzahl User die auf dieses Spiel getippt haben
+ *   + total_users   int          Gesamtanzahl User (für Fortschrittsbalken)
+ *
+ * Zusätzliche Felder auf Root-Ebene:
+ *   sport         string   Name der Sportart
+ *   sport_class   string   PHP-Klasse (z.B. 'Formula1Sport')
+ *   league_name   string   Anzeigename der Liga
+ *   hint          string   Hinweis wenn keine Spiele gefunden
+ *   next_matches  array    Nächste 5 Spiele wenn Tagesansicht leer
+ *
+ * Sync-Verhalten:
+ *   - Ohne ?force wird ensureFresh() aufgerufen (synct nur wenn > 1h alt)
+ *   - Mit ?force wird immer neu von der API geladen
+ *   - Leerer Tag → automatisch force-Sync (einmalig)
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/sports/SportFactory.php';

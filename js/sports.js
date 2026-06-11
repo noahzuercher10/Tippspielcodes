@@ -1,3 +1,18 @@
+/**
+ * sports.js – Tippen-Seite Controller
+ *
+ * Verantwortlich für:
+ *   - Dropdown-Kaskade: Sportart → Liga → Tag → Gruppe
+ *   - Laden und Rendern aller Spielkarten via api/matches.php
+ *   - Tipp-Eingabe und Speichern via api/bets.php
+ *   - Standard-Matches (Fussball, Eishockey, Basketball)
+ *   - Tennis-Spezialansicht mit Satz-Picker (Best of 3 / Best of 5)
+ *   - Formel-1-Rennkarten: Top-10-Fahrer (Punkte) / Podium (Geld)
+ *   - Fortschrittsbalken: Anzahl abgegebener Tipps in der Liga
+ *   - Saisonübersicht-Modus (alle Spiele einer Liga auf einmal)
+ *
+ * Abhängigkeiten: app.js (Tippspiel-Namespace) muss vorher geladen sein.
+ */
 (async () => {
   const sportSel   = document.getElementById('sport');
   const leagueSel  = document.getElementById('league');
@@ -43,6 +58,11 @@
   sports.forEach(s => sportSel.add(new Option(s.name, s.id)));
 
   const myGroups = await Tippspiel.get('/Tippspiel/api/groups.php');
+  /**
+   * Befüllt das Gruppen-Dropdown gefiltert nach aktivem Modus UND
+   * gewählter Liga. Nur Gruppen die beides matchen erscheinen.
+   * Stellt die vorherige Auswahl wieder her wenn noch gültig.
+   */
   function fillGroups() {
     const mode     = Tippspiel.getMode();
     const leagueId = leagueSel.value;
@@ -57,6 +77,7 @@
   fillGroups();
 
   const me = await Tippspiel.get('/Tippspiel/api/me.php');
+  /** Zeigt/versteckt die Guthaben-Anzeige je nach aktivem Modus. */
   function refreshBalance() {
     if (Tippspiel.getMode() === 'money') {
       balanceEl.style.display = 'inline-block';
@@ -82,6 +103,7 @@
     loadMatches();
   });
 
+  /** Reagiert auf Sportart-Wechsel: lädt Liga-Dropdown, blendet Rest aus. */
   async function onSportChange() {
     leagueWrap.style.display = 'none';
     dayWrap.style.display    = 'none';
@@ -97,6 +119,7 @@
     leagueWrap.style.display = 'inline-flex';
   }
 
+  /** Reagiert auf Liga-Wechsel: aktualisiert Gruppen-Filter und lädt Spiele. */
   function onLeagueChange() {
     matchesEl.innerHTML = '';
     progressBar.style.width = '0%'; progressLabel.textContent = '';
@@ -114,6 +137,10 @@
     loadMatches();
   }
 
+  /**
+   * Holt Spieldaten von api/matches.php und übergibt sie an renderMatches().
+   * @param {boolean} force  true = Cache umgehen, direkt von API laden
+   */
   async function loadMatches(force = false) {
     if (!leagueSel.value) { matchesEl.innerHTML = ''; return; }
     if (force) matchesEl.innerHTML = '<p style="color:var(--muted);padding:16px 0">Lade von der API…</p>';
@@ -133,6 +160,13 @@
     }
   }
 
+  /**
+   * Gibt ein <img>-Tag zurück wenn eine Badge-URL vorhanden ist,
+   * sonst einen Platzhalter-Span mit dem Kurznamen.
+   * @param {string|null} badgeUrl  URL zum Teambild/Spielerfoto
+   * @param {string} shortName      Kürzel (z.B. 'FCB', 'VER')
+   * @param {boolean} isSingle      true bei Einzelsport (Tennis, F1) → player-face CSS
+   */
   function teamImg(badgeUrl, shortName, isSingle = false) {
     if (badgeUrl) {
       const cls = isSingle ? 'player-face' : 'team-badge';
@@ -142,8 +176,15 @@
   }
 
   // ----------------------------------------------------------------
-  // renderMatches – main entry point
+  // renderMatches – Haupt-Einstiegspunkt nach API-Antwort
   // ----------------------------------------------------------------
+  /**
+   * Rendert alle Spielkarten in matchesEl. Entscheidet anhand von
+   * sport_class ob F1-, Tennis- oder Standard-Karten gezeichnet werden.
+   * Aktualisiert auch den Fortschrittsbalken.
+   * @param {Object} data          Antwort von api/matches.php
+   * @param {boolean} isSeason     true = Saisonübersicht (alle Spiele)
+   */
   function renderMatches({ matches, total_users, hint, next_matches, sport_class, league_name }, isSeason = false) {
     currentSportClass = sport_class || '';
     currentLeagueName = league_name || '';
@@ -238,8 +279,14 @@
   }
 
   // ----------------------------------------------------------------
-  // F1: render all races grouped
+  // F1: alle Rennen als gruppierte Karten rendern
   // ----------------------------------------------------------------
+  /**
+   * Gruppiert F1-Sub-Matches (P1–P10) nach Rennen (away_name)
+   * und rendert pro Rennen eine renderF1RaceCard().
+   * @param {Array} matches  Alle F1-Matches der Liga
+   * @param {number} now     Aktueller Timestamp (ms) für "gesperrt"-Check
+   */
   function renderF1All(matches, now) {
     const mode = Tippspiel.getMode();
     const numSlots = mode === 'money' ? 3 : 10;
@@ -262,6 +309,15 @@
     ).join('') || '<p style="color:var(--muted);padding:16px 0">Keine F1-Daten vorhanden. Klicke auf "Aktualisieren".</p>';
   }
 
+  /**
+   * Rendert eine F1-Rennkarte mit Positions-Slots (P1–P10 oder P1–P3).
+   * Geschlossene Rennen (Status finished / Zeit abgelaufen) zeigen das
+   * Ergebnis mit Fahrerfoto; offene zeigen Fahrer-Dropdowns.
+   * @param {string} raceName   Name des Rennens (z.B. "Monaco Grand Prix")
+   * @param {Object} positions  Map { 'P1': matchObj, 'P2': matchObj, … }
+   * @param {number} numSlots   10 (Punkte) oder 3 (Geld)
+   * @param {number} now        Aktueller Timestamp in ms
+   */
   function renderF1RaceCard(raceName, positions, numSlots, now) {
     const mode  = Tippspiel.getMode();
     // Reference match for datetime/status
@@ -364,8 +420,16 @@
   }
 
   // ----------------------------------------------------------------
-  // renderMatchRow – for non-F1 sports
+  // renderMatchRow – Standard-Spielkarte (Fussball / Eishockey / Basketball)
   // ----------------------------------------------------------------
+  /**
+   * Gibt das HTML einer einzelnen Spielkarte zurück.
+   * Punkte-Modus: zwei Zahleneingaben (Heim/Auswärts).
+   * Geld-Modus: Sieger-Select + Einsatz-Input.
+   * @param {Object}  m         Match-Objekt aus api/matches.php
+   * @param {boolean} isSingle  true bei Einzelsport (andere Badge-CSS)
+   * @param {number}  now       Aktueller Timestamp in ms
+   */
   function renderMatchRow(m, isSingle, now) {
     const mode     = Tippspiel.getMode();
     const isTennis = currentSportClass === 'TennisSport';
@@ -425,8 +489,15 @@
   }
 
   // ----------------------------------------------------------------
-  // Tennis set picker
+  // Tennis-Spielkarte mit Satz-Picker
   // ----------------------------------------------------------------
+  /**
+   * Rendert eine Tennis-Spielkarte mit Satzverhältnis-Dropdown
+   * und dynamischen Satz-Score-Inputs.
+   * @param {Object}  m          Match-Objekt
+   * @param {boolean} isBestOf5  true bei Grand Slams (3:0..3:2), false = Best of 3
+   * @param {number}  now        Aktueller Timestamp in ms
+   */
   function renderTennisRow(m, isBestOf5, now) {
     const start  = new Date(m.match_datetime);
     const closed = m.status !== 'upcoming' || start.getTime() <= now;
@@ -490,6 +561,12 @@
       </div>`;
   }
 
+  /**
+   * Baut die Satz-Score-Inputs für Tennis (ein Input-Paar pro Satz).
+   * @param {string}   setResult    z.B. "2:1" – bestimmt Anzahl der Sätze
+   * @param {Array}    existingSets Vorhandene Satz-Werte [[sh,sa], …]
+   * @param {boolean}  disabled     true wenn Spiel gesperrt/beendet
+   */
   function buildSetInputsHtml(setResult, existingSets, disabled) {
     if (!setResult) return '';
     const [h, a] = setResult.split(':').map(Number);
@@ -509,14 +586,20 @@
     return html;
   }
 
+  /** Aktualisiert die Satz-Inputs wenn der User ein neues Satzverhältnis wählt. */
   function updateSetInputs(sel) {
     const container = sel.closest('.tennis-pick').querySelector('.set-inputs');
     container.innerHTML = buildSetInputsHtml(sel.value, [], false);
   }
 
   // ----------------------------------------------------------------
-  // saveTip – standard matches
+  // saveTip – Standard-Tipp speichern (Fussball / Basketball / Tennis)
   // ----------------------------------------------------------------
+  /**
+   * Liest die Eingaben aus einem Match-Row-Element und sendet den
+   * Tipp an api/bets.php. Aktualisiert anschliessend die Anzeige.
+   * @param {HTMLElement} row  .match-Element der Spielkarte
+   */
   async function saveTip(row) {
     const mode     = Tippspiel.getMode();
     const matchId  = Number(row.dataset.id);
@@ -590,8 +673,14 @@
   }
 
   // ----------------------------------------------------------------
-  // saveF1Race – sends one bet per slot of an F1 race card
+  // saveF1Race – F1-Renntipp speichern (alle Slots parallel)
   // ----------------------------------------------------------------
+  /**
+   * Liest alle Fahrer-Selects einer F1-Rennkarte aus und schickt
+   * pro Position einen Tipp an api/bets.php (Promise.all = parallel).
+   * Im Geldmodus wird der Gesamteinsatz gleichmässig auf alle Slots aufgeteilt.
+   * @param {HTMLElement} card  .f1-race-card-Element
+   */
   async function saveF1Race(card) {
     const mode    = Tippspiel.getMode();
     const groupId = groupSel.value || null;

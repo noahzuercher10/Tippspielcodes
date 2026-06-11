@@ -45,8 +45,7 @@ if (!empty($user['profile_picture'])) {
   <a href="/Tippspiel/pages/sports.php"      class="<?= $active==='sports'     ? 'active' : '' ?>">Tippen</a>
   <a href="/Tippspiel/pages/groups.php"      class="<?= $active==='groups'     ? 'active' : '' ?>">Gruppen</a>
   <a href="/Tippspiel/pages/leaderboard.php" class="<?= $active==='leaderboard'? 'active' : '' ?>">Rangliste</a>
-  <a href="/Tippspiel/pages/manual.php"     class="<?= $active==='manual'     ? 'active' : '' ?>">Handbuch</a>
-  <?php if ($user['role'] === 'admin'): ?>
+<?php if ($user['role'] === 'admin'): ?>
     <a href="/Tippspiel/pages/admin.php"     class="<?= $active==='admin'      ? 'active' : '' ?>">Admin</a>
   <?php endif; ?>
   <a href="/Tippspiel/api/logout.php" class="logout">Logout</a>

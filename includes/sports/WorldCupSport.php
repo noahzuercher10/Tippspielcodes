@@ -45,6 +45,10 @@ class WorldCupSport extends FootballSport
         'new zealand'        => 'NZL',
     ];
 
+    /**
+     * Gibt den FIFA-Standardkürzel zurück (z.B. 'GER', 'BRA').
+     * Prüft zuerst $nationAliases, Fallback auf die generische Methode.
+     */
     protected function shortName(string $name): string
     {
         $key = mb_strtolower(trim($name));
@@ -53,6 +57,11 @@ class WorldCupSport extends FootballSport
         return parent::shortName($name);
     }
 
+    /**
+     * Synct WM-Spiele aus:
+     *  1. TheSportsDB + OpenLigaDB (via FootballSport::syncLeague)
+     *  2. football-data.org Competition 'WC' (wenn API-Key vorhanden)
+     */
     public function syncLeague(int $leagueId, string $apiLeagueId, string $season = ''): array
     {
         // TheSportsDB (+ OpenLigaDB wenn nötig)

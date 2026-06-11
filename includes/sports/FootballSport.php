@@ -47,6 +47,10 @@ class FootballSport extends SportApi
         'fc st. pauli' => 'STP',      'holstein kiel' => 'KSV',
     ];
 
+    /**
+     * Gibt das bekannte Kürzel zurück wenn der Teamname in $aliases
+     * steht, sonst Fallback auf die generische Eltern-Methode.
+     */
     protected function shortName(string $name): string
     {
         $key = mb_strtolower($name);
@@ -54,6 +58,14 @@ class FootballSport extends SportApi
         return parent::shortName($name);
     }
 
+    /**
+     * Synct eine Fussball-Liga aus bis zu drei Quellen:
+     *  1. TheSportsDB (Basis via parent::syncLeague)
+     *  2. OpenLigaDB  – wenn $oldbMap[$apiLeagueId] existiert (BL, BL2, UCL)
+     *  3. football-data.org – wenn Key konfiguriert und $fdoMap[$apiLeagueId] existiert
+     *
+     * Addiert alle Teilresultate zusammen.
+     */
     public function syncLeague(int $leagueId, string $apiLeagueId, string $season = ''): array
     {
         $res = parent::syncLeague($leagueId, $apiLeagueId, $season);
@@ -84,6 +96,17 @@ class FootballSport extends SportApi
         return $res;
     }
 
+    /**
+     * Holt Spielplandaten von OpenLigaDB (kostenlos, kein Key).
+     * Wird für Bundesliga ('bl1'), 2. Bundesliga ('bl2') und
+     * Champions League ('ucl') verwendet.
+     * Vergangene Matches ohne bestehenden DB-Eintrag werden übersprungen,
+     * damit keine Ghost-Einträge entstehen.
+     *
+     * @param int    $leagueId  Interne Liga-ID
+     * @param string $oldbKey   OpenLigaDB-Kürzel (z.B. 'bl1')
+     * @param string $year      Jahr der Saison (z.B. '2025')
+     */
     protected function syncFromOpenLigaDB(int $leagueId, string $oldbKey, string $year): array
     {
         $stats = ['seen'=>0,'imported'=>0,'updated'=>0];
@@ -152,6 +175,16 @@ class FootballSport extends SportApi
         return $stats;
     }
 
+    /**
+     * Holt Spielplandaten von football-data.org (erfordert kostenlosen API-Key).
+     * Unterstützte Wettbewerbe: PL, PD, SA, BL1, CL (via $fdoMap).
+     * Konvertiert UTC-Timestamps in lokale Zeit.
+     *
+     * @param int    $leagueId  Interne Liga-ID
+     * @param string $code      football-data.org Competition-Code (z.B. 'PL')
+     * @param string $year      Saison-Jahr (z.B. '2025')
+     * @param string $key       API-Key (aus config/api_keys.php)
+     */
     protected function syncFromFootballDataOrg(int $leagueId, string $code, string $year, string $key): array
     {
         $stats = ['seen'=>0,'imported'=>0,'updated'=>0];

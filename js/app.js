@@ -1,9 +1,34 @@
+/**
+ * app.js – globales Tippspiel-Namespace-Objekt
+ *
+ * Wird auf jeder Seite geladen (via header.php).
+ * Stellt bereit:
+ *   Tippspiel.get(url)          – GET-Request → Promise<data>
+ *   Tippspiel.post(url, body)   – POST-Request → Promise<data>
+ *   Tippspiel.toast(msg, type)  – temporäre Benachrichtigung (ok | error | info)
+ *   Tippspiel.getMode()         – aktueller Modus aus localStorage ('points' | 'money')
+ *   Tippspiel.setMode(m)        – Modus speichern
+ *
+ * Der Modus-Schalter im Header löst beim Ändern das Custom-Event
+ * 'mode-changed' auf document aus, damit sport.js und andere Seiten
+ * reagieren können.
+ */
 const Tippspiel = (() => {
+  /** localStorage-Key für den gewählten Spielmodus */
   const MODE_KEY = 'tippspiel.mode';
 
+  /** Gibt den aktuellen Spielmodus zurück ('points' | 'money'). */
   function getMode()  { return localStorage.getItem(MODE_KEY) || 'points'; }
+  /** Speichert den Spielmodus in localStorage. */
   function setMode(m) { localStorage.setItem(MODE_KEY, m); }
 
+  /**
+   * Zentraler HTTP-Helper. Wirft einen Error wenn der Server
+   * einen Fehler-Status zurückgibt oder data.error gesetzt ist.
+   * @param {string} url
+   * @param {RequestInit} opts
+   * @returns {Promise<any>}
+   */
   async function api(url, opts = {}) {
     const r = await fetch(url, {
       credentials: 'same-origin',
@@ -15,9 +40,16 @@ const Tippspiel = (() => {
     return data;
   }
 
+  /** GET-Shortcut. */
   const get  = (u)       => api(u);
+  /** POST-Shortcut mit JSON-Body. */
   const post = (u, body) => api(u, { method: 'POST', body: JSON.stringify(body) });
 
+  /**
+   * Zeigt eine temporäre Toast-Benachrichtigung unten rechts.
+   * @param {string} msg   Anzeigetext
+   * @param {'ok'|'error'|'info'} type  Farbe der Benachrichtigung
+   */
   function toast(msg, type = 'info') {
     const t = document.createElement('div');
     t.textContent = msg;
@@ -31,6 +63,10 @@ const Tippspiel = (() => {
     setTimeout(() => t.remove(), 3500);
   }
 
+  /**
+   * Verbindet den Modus-Select im Header mit localStorage und feuert
+   * bei Änderung das 'mode-changed'-Event auf document.
+   */
   function initModeSwitch() {
     const sel = document.getElementById('mode');
     if (!sel) return;

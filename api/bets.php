@@ -1,4 +1,25 @@
 <?php
+/**
+ * POST /api/bets.php – Tipp abgeben oder aktualisieren
+ *
+ * Body (JSON):
+ *   match_id    int       – Pflicht
+ *   mode        string    – 'points' | 'money'
+ *   group_id    int|null  – optional, muss zur Liga des Spiels passen
+ *   tip_home    int       – Punkte-Modus: getippte Heimtore/-punkte
+ *   tip_away    int       – Punkte-Modus: getippte Auswärtstore/-punkte
+ *   tip_winner  string    – Geld-Modus: 'home' | 'draw' | 'away'
+ *   stake       float     – Geld-Modus: Einsatz (10–500 CHF)
+ *   extra_data  object    – optional:
+ *                           { driver: string }      → F1-Tipp
+ *                           { sets: [[sh,sa],…] }   → Tennis-Tipp
+ *
+ * Geschäftsregeln:
+ *  - Tipp nur möglich solange match.status='upcoming' UND Startzeit in der Zukunft
+ *  - Im Geld-Modus wird der Einsatz sofort vom Guthaben abgezogen
+ *  - Wird ein bestehender Tipp überschrieben, wird der alte Einsatz zurückgebucht
+ *  - Gruppe muss zur gleichen Liga wie das Spiel gehören
+ */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 header('Content-Type: application/json');
