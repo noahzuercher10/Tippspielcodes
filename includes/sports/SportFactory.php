@@ -20,6 +20,7 @@ require_once __DIR__ . '/IceHockeySport.php';
 require_once __DIR__ . '/BasketballSport.php';
 require_once __DIR__ . '/TennisSport.php';
 require_once __DIR__ . '/Formula1Sport.php';
+require_once __DIR__ . '/WorldCupSport.php';
 require_once __DIR__ . '/../../config/db.php';
 
 class SportFactory

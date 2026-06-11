@@ -94,17 +94,20 @@
     syncReport.textContent = 'Synchronisiere alle Ligen...';
     try {
       const r = await post({ action:'sync_all' });
-      let total = 0;
-      const lines = [];
-      // Pro Liga eine Zeile im Report
-      for (const [lid, info] of Object.entries(r.report)) {
-        if (info.error) { lines.push(`Liga ${lid}: FEHLER ${info.error}`); }
-        else { lines.push(`Liga ${lid}: ${info.seen} Events, ${info.imported} neu`); total += (info.imported||0); }
-      }
-      syncReport.innerHTML = `<b>Insgesamt ${total} neue Spiele gespeichert.</b><br>` + lines.join('<br>');
-      Tippspiel.toast(`Alle Ligen synchronisiert: ${total} neue Spiele`, 'ok');
+      syncReport.innerHTML = '<b>Sync abgeschlossen.</b>';
+      Tippspiel.toast('Alle Ligen synchronisiert', 'ok');
       refreshMatches();
     } catch(e){ Tippspiel.toast(e.message,'error'); syncReport.textContent='FEHLER: '+e.message; }
+  };
+
+  // "Duplikate bereinigen"
+  document.getElementById('cleanup-dupes').onclick = async () => {
+    try {
+      const r = await post({ action:'cleanup_dupes' });
+      Tippspiel.toast(`Duplikate bereinigt: ${r.deleted} Einträge gelöscht`, 'ok');
+      syncReport.textContent = `Duplikate bereinigt: ${r.deleted} Zeilen gelöscht.`;
+      refreshMatches();
+    } catch(e){ Tippspiel.toast(e.message,'error'); }
   };
 
   /** Laedt die letzten 200 Spiele und rendert die Tabelle mit "Auswerten"-Buttons. */

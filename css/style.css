@@ -188,10 +188,20 @@ body.dark .auth-body {
   grid-template-columns: 1fr 70px 70px 1fr 200px;
   gap: 10px; align-items: center;
   padding: 10px 8px; border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  transition: background .15s, border-left-color .15s;
 }
 .match:last-child { border-bottom: 0; }
 .match.money {
   grid-template-columns: 1fr 1.6fr 1fr 200px;
+}
+.match.tipped {
+  background: rgba(5,150,105,.06);
+  border-left-color: var(--accent);
+}
+.f1-race-card.tipped {
+  border-left: 3px solid var(--accent);
+  background: rgba(5,150,105,.04);
 }
 
 .match-team {
@@ -230,6 +240,10 @@ body.dark .auth-body {
 .match .winner-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .match .save { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
 .match .save:hover { opacity: .88; }
+.match .save.saved,
+.f1-save.saved { background: #d1d5db; border-color: #d1d5db; color: #6b7280; }
+.match .save.saved:hover,
+.f1-save.saved:hover { background: #9ca3af; border-color: #9ca3af; color: #fff; }
 .match .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 .result-score {
   font-weight: 700; font-size: 15px; color: var(--text);
@@ -257,6 +271,11 @@ body.dark .auth-body {
 }
 .f1-slot {
   display: flex; align-items: center; gap: 8px;
+}
+.f1-driver-face {
+  width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+  flex-shrink: 0; border: 1px solid var(--border);
+  background: var(--surface-2);
 }
 .f1-pos {
   display: inline-block; padding: 2px 8px; min-width: 38px; text-align: center;

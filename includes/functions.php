@@ -77,9 +77,9 @@ function max_stake(float $balance): float {
 }
 
 /**
- * Formel 1: Tipp-Bewertung (Fahrer korrekt getippt = 10 Punkte).
- * Der korrekte Fahrer steht in Klammern am Ende von home_name:
- *   "Monaco GP – Sieger (Max Verstappen)"
+ * Formel 1: Tipp-Bewertung im Punktemodus.
+ * Fahrer korrekt getippt = 2 Punkte (unabhängig von Platzierung).
+ * Der korrekte Fahrer steht in Klammern am Ende von home_name.
  */
 function calculate_points_f1(string $extraData, string $homeName): int {
     $ed = json_decode($extraData, true);
@@ -89,6 +89,53 @@ function calculate_points_f1(string $extraData, string $homeName): int {
         return strcasecmp($tipped, trim($m[1])) === 0 ? 2 : 0;
     }
     return 0;
+}
+
+/**
+ * Formel 1 Geldmodus – Podium-Auszahlung (P1–P3).
+ *
+ * Regeln:
+ *  - Fahrer auf genauer Position (P1/P2/P3)  → Einsatz × 2
+ *  - Fahrer im Podium, aber falsche Position  → Einsatz × 1 (Einsatz zurück)
+ *  - Fahrer nicht im Podium                  → 0
+ *
+ * Die Podium-Fahrer werden aus den Matches P1, P2, P3 derselben Runde gelesen.
+ */
+function calculate_money_payout_f1_podium(string $extraData, int $matchId, float $stake): float
+{
+    if ($stake <= 0) return 0.0;
+    $ed = json_decode($extraData, true);
+    $tipped = strtolower(trim($ed['driver'] ?? ''));
+    if ($tipped === '') return 0.0;
+
+    $pdo = db();
+    $row = $pdo->prepare('SELECT home_name, api_event_id FROM matches WHERE id = ?');
+    $row->execute([$matchId]);
+    $match = $row->fetch();
+    if (!$match) return 0.0;
+
+    // Genaue Position prüfen
+    if (preg_match('/\(([^)]+)\)\s*$/', (string)$match['home_name'], $m)) {
+        if (strcasecmp(trim($m[1]), $tipped) === 0) return round($stake * 2.0, 2);
+    } else {
+        return 0.0; // Noch kein Ergebnis
+    }
+
+    // Podium-Mitgliedschaft prüfen (P1, P2, P3 derselben Runde)
+    if (!preg_match('/^(.+)_P\d+$/', (string)$match['api_event_id'], $m)) return 0.0;
+    $prefix = $m[1];
+
+    $podiumStmt = $pdo->prepare(
+        'SELECT home_name FROM matches WHERE api_event_id IN (?, ?, ?)'
+    );
+    $podiumStmt->execute(["{$prefix}_P1", "{$prefix}_P2", "{$prefix}_P3"]);
+    foreach ($podiumStmt->fetchAll() as $pm) {
+        if (preg_match('/\(([^)]+)\)\s*$/', (string)$pm['home_name'], $m)) {
+            if (strcasecmp(trim($m[1]), $tipped) === 0) return round($stake, 2); // Im Podium
+        }
+    }
+
+    return 0.0; // Nicht im Podium
 }
 
 /**
@@ -161,9 +208,16 @@ function evaluate_match(int $matchId): void {
             $extra2 = (string)($bet['extra_data'] ?? '');
             $ed2    = $extra2 ? json_decode($extra2, true) : [];
             if (!empty($ed2['driver'])) {
-                // F1 Geldtipp: Fahrer korrekt = Einsatz × 2
-                $correct = calculate_points_f1($extra2, $match['home_name']) > 0;
-                $payout  = $correct ? (float)$bet['stake'] * 2.0 : 0.0;
+                // F1 Geldtipp
+                $posStr = (string)($match['home_short'] ?? '');
+                if (preg_match('/^P[1-3]$/', $posStr)) {
+                    // Podium (P1–P3): genau richtig → ×2, im Podium → ×1, sonst 0
+                    $payout = calculate_money_payout_f1_podium($extra2, $matchId, (float)$bet['stake']);
+                } else {
+                    // P4–P10: nur exakter Treffer → ×2
+                    $correct = calculate_points_f1($extra2, $match['home_name']) > 0;
+                    $payout  = $correct ? (float)$bet['stake'] * 2.0 : 0.0;
+                }
             } else {
                 $payout = calculate_money_payout(
                     (string)$bet['tip_winner'],

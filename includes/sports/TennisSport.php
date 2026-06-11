@@ -2,27 +2,26 @@
 require_once __DIR__ . '/SportApi.php';
 
 /**
- * Tennis – ATP Grand Slams + ATP Tour
+ * Tennis – Grand Slams via TheSportsDB
  *
- * Für Ligen mit api_id = 'search:Roland Garros' (etc.) werden drei Strategien
- * kombiniert, weil die freie TheSportsDB-API Turnier-Suche instabil ist:
+ * Primäre Strategie: eventsday.php?d=DATE&s=Tennis
+ *   → gibt ALLE Tennis-Events eines Tages zurück.
+ *   → wird nach Turnier-Keywords gefiltert (Roland Garros, Wimbledon, …)
  *
- * 1. searchleagues.php → echte League-ID finden → season/next/past abrufen
- * 2. searchevents.php  → mehrere Suchbegriffe (Synonyme) + mehrere Saisons
- * 3. ATP-Tour-Filter   → alle ATP-Tour-Events holen und nach Turnier filtern
+ * Fallback (Saisonübersicht): alte Drei-Strategie-Methode bleibt erhalten.
  */
 class TennisSport extends SportApi
 {
-    /** Synonyme für Turniernamen (lowercase) */
+    /** Keywords pro Turniername (lowercase) */
     private const KEYWORDS = [
         'roland garros'   => ['french open', 'roland garros', 'roland', 'french', 'paris'],
         'french open'     => ['french open', 'roland garros', 'roland', 'french', 'paris'],
-        'wimbledon'       => ['wimbledon', 'all england'],
+        'wimbledon'       => ['wimbledon', 'all england', 'london'],
         'australian open' => ['australian open', 'australian', 'ausopen', 'melbourne'],
-        'us open'         => ['us open', 'usopen', 'flushing'],
+        'us open'         => ['us open', 'usopen', 'flushing', 'new york'],
     ];
 
-    /** Suchbegriffe für searchevents.php / searchleagues.php */
+    /** Suchbegriffe für searchleagues / searchevents (Fallback) */
     private const SEARCH_TERMS = [
         'roland garros'   => ['Roland Garros', 'French Open'],
         'french open'     => ['French Open', 'Roland Garros'],
@@ -31,8 +30,115 @@ class TennisSport extends SportApi
         'us open'         => ['US Open'],
     ];
 
-    /** ATP-Tour-Liga-ID in TheSportsDB (Fallback-Quelle) */
     private const ATP_TOUR_ID = '4464';
+
+    // ----------------------------------------------------------------
+    // Haupt-Einstiegspunkt: Spiele eines Tages
+    // ----------------------------------------------------------------
+
+    /**
+     * Überschreibt die Basisklasse: holt Tennis-Events per eventsday.php.
+     */
+    public function getMatchesForDay(int $leagueId, string $date): array
+    {
+        $this->syncDay($leagueId, $date);
+
+        $stmt = db()->prepare(
+            'SELECT m.* FROM matches m
+              WHERE m.league_id = ? AND DATE(m.match_datetime) = ?
+              ORDER BY m.match_datetime'
+        );
+        $stmt->execute([$leagueId, $date]);
+        return $stmt->fetchAll();
+    }
+
+    // ----------------------------------------------------------------
+    // ensureFresh: synct heutige + nahe Tage + Saisonübersicht
+    // ----------------------------------------------------------------
+
+    public function ensureFresh(int $leagueId, bool $force = false): void
+    {
+        $row = db()->prepare('SELECT api_id, season, last_sync FROM leagues WHERE id = ?');
+        $row->execute([$leagueId]);
+        $league = $row->fetch();
+        if (!$league || !$league['api_id']) return;
+
+        $stale = $force
+              || !$league['last_sync']
+              || (time() - strtotime($league['last_sync'])) > $this->cacheTtlSeconds;
+
+        if (!$stale) return;
+
+        // Synct: gestern, heute + nächste 6 Tage (8 Aufrufe × ~120ms ≈ 1s)
+        $today = date('Y-m-d');
+        for ($i = -1; $i <= 6; $i++) {
+            $d = date('Y-m-d', strtotime("$today +$i days"));
+            $this->syncDay($leagueId, $d, $force);
+            if ($i < 6) usleep(120000);
+        }
+
+        // Saisonübersicht-Daten (im Hintergrund, Fehler ignorieren)
+        try {
+            $this->syncLeague($leagueId, (string)$league['api_id'], (string)($league['season'] ?? ''));
+        } catch (Throwable $ignored) {}
+
+        db()->prepare('UPDATE leagues SET last_sync = NOW() WHERE id = ?')->execute([$leagueId]);
+    }
+
+    // ----------------------------------------------------------------
+    // syncDay: ein Datum via eventsday.php
+    // ----------------------------------------------------------------
+
+    private function syncDay(int $leagueId, string $date, bool $force = false): void
+    {
+        $pdo = db();
+
+        if (!$force) {
+            // Diesen Tag überspringen wenn schon Daten vorhanden
+            $chk = $pdo->prepare(
+                'SELECT COUNT(*) FROM matches WHERE league_id = ? AND DATE(match_datetime) = ?'
+            );
+            $chk->execute([$leagueId, $date]);
+            if ((int)$chk->fetchColumn() > 0) return;
+        }
+
+        $keywords = $this->keywordsForLeague($leagueId);
+
+        // --- Strategie A: eventsday.php?d=DATE&s=Tennis ---
+        $data   = $this->tsdbCall('eventsday.php?d=' . urlencode($date) . '&s=Tennis');
+        $events = $data['events'] ?? [];
+
+        // --- Strategie B: ohne Sport-Filter, dann manuell filtern ---
+        if (empty($events)) {
+            $data2  = $this->tsdbCall('eventsday.php?d=' . urlencode($date));
+            $all    = $data2['events'] ?? [];
+            $events = array_values(array_filter($all, function ($ev) {
+                return str_contains(strtolower($ev['strSport'] ?? ''), 'tennis');
+            }));
+        }
+
+        $now   = time();
+        $maxTs = strtotime($this->maxDate . ' 23:59:59');
+
+        foreach ($events as $ev) {
+            if (!$this->eventMatchesKeywords($ev, $keywords)) continue;
+            $n = $this->parseEvent($ev);
+            if (!$n) continue;
+            $ts = strtotime($n['datetime']);
+            if ($ts === false || $ts > $maxTs) continue;
+
+            if ($n['home_score'] !== null && $n['away_score'] !== null) {
+                $mid = $this->upsertFinished($leagueId, $n);
+                if ($mid) evaluate_match($mid);
+            } else {
+                $this->upsertUpcoming($leagueId, $n);
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // syncLeague (Fallback / Saisonübersicht)
+    // ----------------------------------------------------------------
 
     public function syncLeague(int $leagueId, string $apiLeagueId, string $season = ''): array
     {
@@ -50,20 +156,19 @@ class TennisSport extends SportApi
             if ($cnt > 0) $sources[] = "$src=$cnt";
         };
 
+        $keywords = $this->keywordsForLeague($leagueId);
+
         if (!str_starts_with($apiLeagueId, 'search:')) {
-            // Normale ATP-Tour-Sync (kein Runden-Iterator)
-            if ($season !== '') {
-                $add($this->fetchSeasonEvents($apiLeagueId, $season), 'season');
-            }
+            // Normale Sync
+            if ($season !== '') $add($this->fetchSeasonEvents($apiLeagueId, $season), 'season');
             $add($this->fetchUpcomingEvents($apiLeagueId), 'next');
             $add($this->fetchPastEvents($apiLeagueId),     'past');
         } else {
             $term     = trim(substr($apiLeagueId, 7));
             $termKey  = strtolower($term);
-            $keywords = self::KEYWORDS[$termKey]   ?? [strtolower($term)];
             $searches = self::SEARCH_TERMS[$termKey] ?? [$term];
 
-            // --- Strategie 1: Liga-ID via searchleagues ermitteln ---
+            // Strategie 1: Liga-ID über searchleagues
             foreach ($searches as $st) {
                 usleep(120000);
                 $lgsData = $this->tsdbCall('searchleagues.php?t=' . urlencode($st));
@@ -81,23 +186,7 @@ class TennisSport extends SportApi
                 }
             }
 
-            // --- Strategie 2: searchevents (mehrere Suchbegriffe × Saisons) ---
-            foreach ($searches as $st) {
-                $seasons = array_filter(
-                    [$season, $season ? (string)((int)$season - 1) : ''],
-                    fn($s) => $s !== ''
-                );
-                foreach ($seasons as $s) {
-                    usleep(80000);
-                    $res = $this->tsdbCall('searchevents.php?e=' . urlencode($st) . '&s=' . urlencode($s));
-                    $add($res['event'] ?? [], "se:$st/$s");
-                }
-                usleep(80000);
-                $res = $this->tsdbCall('searchevents.php?e=' . urlencode($st));
-                $add($res['event'] ?? [], "se:$st");
-            }
-
-            // --- Strategie 3: ATP-Tour-Events holen und nach Turnier filtern ---
+            // Strategie 2: ATP-Tour-Filter
             if ($season !== '') {
                 $atpSeason = $this->fetchSeasonEvents(self::ATP_TOUR_ID, $season);
                 $f = array_filter($atpSeason, fn($ev) => $this->eventMatchesKeywords($ev, $keywords));
@@ -112,7 +201,6 @@ class TennisSport extends SportApi
             $add(array_values($f), 'atp-past');
         }
 
-        // --- Events verarbeiten ---
         $imported = 0; $updated = 0; $seen = 0;
         $now   = time();
         $maxTs = strtotime($this->maxDate . ' 23:59:59');
@@ -144,17 +232,28 @@ class TennisSport extends SportApi
     }
 
     // ----------------------------------------------------------------
+    // Helpers
+    // ----------------------------------------------------------------
+
+    private function keywordsForLeague(int $leagueId): array
+    {
+        $row = db()->prepare('SELECT api_id FROM leagues WHERE id = ?');
+        $row->execute([$leagueId]);
+        $apiId  = (string)($row->fetchColumn() ?? '');
+        $term   = strtolower(str_starts_with($apiId, 'search:') ? trim(substr($apiId, 7)) : $apiId);
+        return self::KEYWORDS[$term] ?? [strtolower($term)];
+    }
 
     private function leagueMatchesKeywords(array $league, array $keywords): bool
     {
         $hay = strtolower(implode(' ', array_filter([
-            $league['strLeague']      ?? null,
+            $league['strLeague']          ?? null,
             $league['strLeagueAlternate'] ?? null,
-            $league['strSport']       ?? null,
-            $league['strCountry']     ?? null,
+            $league['strSport']           ?? null,
+            $league['strCountry']         ?? null,
         ])));
         foreach ($keywords as $kw) {
-            if (str_contains($hay, $kw)) return true;
+            if ($kw !== '' && str_contains($hay, $kw)) return true;
         }
         return false;
     }
@@ -165,6 +264,7 @@ class TennisSport extends SportApi
             $ev['strEvent']    ?? null,
             $ev['strFilename'] ?? null,
             $ev['strLeague']   ?? null,
+            $ev['strSeason']   ?? null,
             $ev['strVenue']    ?? null,
             $ev['strCity']     ?? null,
             $ev['strCountry']  ?? null,
@@ -175,8 +275,6 @@ class TennisSport extends SportApi
         }
         return false;
     }
-
-    // ----------------------------------------------------------------
 
     protected function parseEvent(array $ev): ?array
     {

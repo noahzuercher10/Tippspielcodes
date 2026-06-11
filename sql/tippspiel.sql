@@ -119,7 +119,8 @@ INSERT INTO sports (name,type,api_class) VALUES
  ('Eishockey',  'team',   'IceHockeySport'),
  ('Basketball', 'team',   'BasketballSport'),
  ('Tennis',     'single', 'TennisSport'),
- ('Formel 1',   'single', 'Formula1Sport');
+ ('Formel 1',   'single', 'Formula1Sport'),
+ ('WM 2026',    'team',   'WorldCupSport');
 
 -- Ligen mit echten TheSportsDB-Liga-IDs
 INSERT INTO leagues (sport_id,name,season,api_id) VALUES
@@ -142,7 +143,9 @@ INSERT INTO leagues (sport_id,name,season,api_id) VALUES
  (4,'Wimbledon',              '2026','search:Wimbledon'),
  (4,'US Open',                '2026','search:US Open'),
  -- Formel 1
- (5,'Formel 1 Saison',        '2026','4370');
+ (5,'Formel 1 Saison',        '2026','4370'),
+ -- WM 2026 (FIFA World Cup – TheSportsDB Liga-ID 4453)
+ (6,'FIFA WM 2026',           '2026','4453');
 
 -- Gruppen
 INSERT INTO groups_t (name,join_code,mode,league_id,admin_id) VALUES

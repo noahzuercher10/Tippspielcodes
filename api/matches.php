@@ -99,6 +99,15 @@ foreach ($matches as &$m) {
 }
 unset($m);
 
+// Dedup: gleiche api_event_id nur einmal ausgeben (Schutz gegen DB-Duplikate)
+$seenKeys = [];
+$matches  = array_values(array_filter($matches, function ($m) use (&$seenKeys) {
+    $key = !empty($m['api_event_id']) ? $m['api_event_id'] : 'id_' . $m['id'];
+    if (isset($seenKeys[$key])) return false;
+    $seenKeys[$key] = true;
+    return true;
+}));
+
 // Nächste 5 Spiele als Orientierung wenn kein Match an gewähltem Tag
 $nextSuggestions = [];
 if (!$matches && !$showAll) {

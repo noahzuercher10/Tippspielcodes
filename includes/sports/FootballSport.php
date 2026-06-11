@@ -84,7 +84,7 @@ class FootballSport extends SportApi
         return $res;
     }
 
-    private function syncFromOpenLigaDB(int $leagueId, string $oldbKey, string $year): array
+    protected function syncFromOpenLigaDB(int $leagueId, string $oldbKey, string $year): array
     {
         $stats = ['seen'=>0,'imported'=>0,'updated'=>0];
         $url = "https://api.openligadb.de/getmatchdata/" . urlencode($oldbKey) . "/" . urlencode($year);
@@ -150,7 +150,7 @@ class FootballSport extends SportApi
         return $stats;
     }
 
-    private function syncFromFootballDataOrg(int $leagueId, string $code, string $year, string $key): array
+    protected function syncFromFootballDataOrg(int $leagueId, string $code, string $year, string $key): array
     {
         $stats = ['seen'=>0,'imported'=>0,'updated'=>0];
         $url = "https://api.football-data.org/v4/competitions/" . urlencode($code) . "/matches?season=" . urlencode($year);

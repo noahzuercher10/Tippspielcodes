@@ -5,6 +5,8 @@ require_once __DIR__ . '/SportApi.php';
  * Formel 1 – Ergast/Jolpica API
  * Erstellt pro Rennen 10 Sub-Matches: P1…P10 (Podium + Top-10-Tipping).
  * api_event_id = "ergast_{year}_{round}_P1" … "_P10"
+ *
+ * Fahrerfoto: TheSportsDB searchplayers (gecacht pro Sync-Lauf).
  */
 class Formula1Sport extends SportApi
 {
@@ -20,6 +22,9 @@ class Formula1Sport extends SportApi
         'P9'  => '9. Platz',
         'P10' => '10. Platz',
     ];
+
+    /** Session-Cache: Fahrername → Foto-URL */
+    private array $driverPhotoCache = [];
 
     public function syncLeague(int $leagueId, string $apiLeagueId, string $season = ''): array
     {
@@ -79,12 +84,15 @@ class Formula1Sport extends SportApi
                 $apiEventId = "ergast_{$year}_{$round}_{$pos}";
                 $isFinished = ($driver !== null);
 
+                // Fahrerfoto nur wenn Ergebnis bekannt
+                $driverPhoto = $driver ? $this->lookupDriverPhoto($driver) : null;
+
                 $n = [
                     'home_name'    => $homeName,
                     'away_name'    => mb_substr($name, 0, 120),
                     'home_short'   => $pos,
                     'away_short'   => 'F1',
-                    'home_badge'   => null,
+                    'home_badge'   => $driverPhoto,
                     'away_badge'   => null,
                     'datetime'     => $dt,
                     'home_score'   => $isFinished ? 1 : null,
@@ -110,5 +118,39 @@ class Formula1Sport extends SportApi
             'seen'       => $seen,
             'last_error' => $this->lastError,
         ];
+    }
+
+    /**
+     * Sucht das Fahrerfoto via TheSportsDB searchplayers.
+     * Gecacht pro Sync-Lauf (vermeidet doppelte API-Calls).
+     */
+    private function lookupDriverPhoto(string $name): ?string
+    {
+        if (array_key_exists($name, $this->driverPhotoCache)) {
+            return $this->driverPhotoCache[$name];
+        }
+
+        usleep(80000); // Throttle: 80ms pro Aufruf
+        $data = $this->tsdbCall('searchplayers.php?p=' . urlencode($name) . '&s=Motorsport');
+        $photo = null;
+
+        if ($data && !empty($data['player'])) {
+            // Genaues Match zuerst, sonst erster Treffer
+            $match = null;
+            foreach ($data['player'] as $p) {
+                if (strcasecmp(trim($p['strPlayer'] ?? ''), $name) === 0) {
+                    $match = $p;
+                    break;
+                }
+            }
+            if (!$match) $match = $data['player'][0];
+
+            $photo = $this->normBadge($match['strThumb'] ?? null)
+                  ?: $this->normBadge($match['strCutout'] ?? null)
+                  ?: $this->normBadge($match['strFanart1'] ?? null);
+        }
+
+        $this->driverPhotoCache[$name] = $photo;
+        return $photo;
     }
 }

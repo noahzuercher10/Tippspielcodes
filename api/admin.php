@@ -132,6 +132,15 @@ try {
 
         // ---- ALLE Ligen mit api_id syncen (fuer cron oder Admin-Knopf) ----
         case 'sync_all':
+            // Erst Duplikate bereinigen
+            $pdo->exec(
+                'DELETE m1 FROM matches m1
+                 INNER JOIN matches m2
+                   ON m1.api_event_id = m2.api_event_id
+                  AND m1.api_event_id IS NOT NULL
+                  AND m1.api_event_id != ""
+                  AND m1.id > m2.id'
+            );
             $lgs = $pdo->query(
                 'SELECT id, api_id, season FROM leagues WHERE api_id IS NOT NULL AND api_id != ""'
             )->fetchAll();
@@ -140,15 +149,26 @@ try {
                 $api = SportFactory::forLeagueId((int)$lg['id']);
                 if (!$api) { $report[$lg['id']] = ['error'=>'no class']; continue; }
                 try {
-                    // Pro Liga eigenes try/catch damit eine Liga den Rest nicht killt
-                    $report[$lg['id']] = $api->syncLeague(
-                        (int)$lg['id'], (string)$lg['api_id'], (string)($lg['season'] ?? '')
-                    );
+                    $api->ensureFresh((int)$lg['id'], true);
+                    $report[$lg['id']] = ['ok' => true];
                 } catch (Throwable $e) {
                     $report[$lg['id']] = ['error' => $e->getMessage()];
                 }
             }
             echo json_encode(['ok' => true, 'report' => $report]);
+            break;
+
+        // ---- Duplikate in matches-Tabelle bereinigen ----
+        case 'cleanup_dupes':
+            $deleted = $pdo->exec(
+                'DELETE m1 FROM matches m1
+                 INNER JOIN matches m2
+                   ON m1.api_event_id = m2.api_event_id
+                  AND m1.api_event_id IS NOT NULL
+                  AND m1.api_event_id != ""
+                  AND m1.id > m2.id'
+            );
+            echo json_encode(['ok' => true, 'deleted' => $deleted]);
             break;
 
         default:

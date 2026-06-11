@@ -59,6 +59,7 @@ require_once __DIR__ . '/../includes/header.php';
     <select id="sync-league" disabled></select>
     <button class="btn primary" id="sync-go">Diese Liga jetzt syncen</button>
     <button class="btn" id="sync-all">ALLE Ligen jetzt syncen</button>
+    <button class="btn danger" id="cleanup-dupes">Duplikate bereinigen</button>
   </div>
   <div id="sync-report" style="margin-top:10px;color:var(--muted);font-size:13px"></div>
 </section>
@@ -79,5 +80,5 @@ require_once __DIR__ . '/../includes/header.php';
   </table>
 </section>
 
-<script src="/Tippspiel/js/admin.js?v=2"></script>
+<script src="/Tippspiel/js/admin.js?v=3"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

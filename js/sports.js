@@ -260,10 +260,14 @@
     const timeStr = start.toLocaleDateString('de-CH', {day:'2-digit',month:'2-digit',year:'numeric'})
                   + ' ' + start.toLocaleTimeString('de-CH', {hour:'2-digit',minute:'2-digit'});
 
-    // Existing stake (from P1 money bet if any)
+    // hasBet muss VOR footerHtml definiert sein
+    const hasBet = Object.values(positions).some(p => p?.my_bet);
+
+    // Gesamteinsatz: P1-Stake × 3 (da jede Position stake/3 bekommt)
     let existingStake = '';
-    if (mode === 'money' && positions['P1']?.my_bet?.stake) {
-      existingStake = Number(positions['P1'].my_bet.stake).toFixed(2);
+    if (mode === 'money') {
+      const p1Stake = Number(positions['P1']?.my_bet?.stake ?? 0);
+      if (p1Stake > 0) existingStake = (p1Stake * numSlots).toFixed(2);
     }
 
     // Build position slots (P1…P{numSlots})
@@ -274,16 +278,20 @@
       const posKey = 'P' + i;
       const m = positions[posKey];
       if (!m && closed) {
-        // Position not in DB yet
         slotsHtml += `<div class="f1-slot"><span class="f1-pos">${posKey}</span><span style="color:var(--muted);font-size:13px">–</span></div>`;
         continue;
       }
 
-      // Driver result
+      // Fahrer-Ergebnis aus home_name: "Monaco GP – 1. Platz (Max Verstappen)"
       const resultMatch = m?.home_name?.match(/\(([^)]+)\)\s*$/);
       const resultDriver = resultMatch ? resultMatch[1] : null;
 
-      // Existing pick from saved bet
+      // Fahrerfoto (gespeichert in home_badge nach Rennergebnis)
+      const driverPhoto = m?.home_badge
+        ? `<img class="f1-driver-face" src="${m.home_badge}" alt="${resultDriver || ''}" onerror="this.style.display='none'">`
+        : '';
+
+      // Gespeicherter Tipp
       let existingPick = '';
       if (m?.my_bet?.extra_data) {
         try { existingPick = JSON.parse(m.my_bet.extra_data)?.driver ?? ''; } catch {}
@@ -291,9 +299,13 @@
 
       if (closed || !m) {
         const val = resultDriver || (m?.status === 'finished' ? '–' : 'Offen');
+        const tipMatch = existingPick && resultDriver
+          ? (existingPick.toLowerCase() === resultDriver.toLowerCase() ? ' style="color:var(--accent)"' : ' style="color:var(--danger)"')
+          : '';
         slotsHtml += `<div class="f1-slot">
           <span class="f1-pos">${posKey}</span>
-          <span style="font-size:13px;${resultDriver ? 'color:var(--text);font-weight:600' : 'color:var(--muted)'}">${val}</span>
+          ${driverPhoto}
+          <span style="font-size:13px;${resultDriver ? 'font-weight:600' : 'color:var(--muted)'}"${tipMatch}>${val}</span>
           ${existingPick && !resultDriver ? `<span style="font-size:11px;color:var(--muted);margin-left:4px">✓ ${existingPick}</span>` : ''}
         </div>`;
       } else {
@@ -314,17 +326,21 @@
     // Footer: stake (money) + save button
     let footerHtml = '';
     if (!closed) {
+      const savedCls = hasBet ? ' saved' : '';
       if (mode === 'money') {
+        const stakeLabel = numSlots === 3
+          ? `Gesamteinsatz CHF (aufgeteilt auf P1–P3)`
+          : `Einsatz CHF`;
         footerHtml = `
-          <input type="number" step="0.01" min="10" max="500" class="stake f1-stake"
-                 placeholder="Einsatz CHF (für P1)" value="${existingStake}">
-          <button class="btn primary small f1-save">Speichern</button>`;
+          <input type="number" step="1" min="30" max="1500" class="stake f1-stake"
+                 placeholder="${stakeLabel}" value="${existingStake}">
+          <button class="btn primary small f1-save${savedCls}">Speichern</button>`;
       } else {
-        footerHtml = `<button class="btn primary small f1-save">Speichern</button>`;
+        footerHtml = `<button class="btn primary small f1-save${savedCls}">Speichern</button>`;
       }
     }
 
-    return `<div class="f1-race-card">
+    return `<div class="f1-race-card${hasBet ? ' tipped' : ''}">
       <div class="f1-race-header">
         <span class="f1-race-name">${raceName}</span>
         <span class="meta">${timeStr}</span>
@@ -359,14 +375,14 @@
     } else if (closed) {
       statusEl = `<span class="badge">Läuft</span>`;
     } else {
-      statusEl = `<button class="btn save small">Speichern</button>`;
+      statusEl = `<button class="btn save small${m.my_bet ? ' saved' : ''}">Speichern</button>`;
     }
 
     if (mode === 'points') {
       const tipH = m.my_bet ? m.my_bet.tip_home : '';
       const tipA = m.my_bet ? m.my_bet.tip_away : '';
       return `
-        <div class="match" data-id="${m.id}">
+        <div class="match${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
           <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
           <input type="number" min="0" class="tipH" value="${tipH ?? ''}" ${closed ? 'disabled' : ''}>
           <input type="number" min="0" class="tipA" value="${tipA ?? ''}" ${closed ? 'disabled' : ''}>
@@ -378,7 +394,7 @@
       const stake = m.my_bet ? Number(m.my_bet.stake).toFixed(2) : '';
       const sel   = v => tw === v ? 'selected' : '';
       return `
-        <div class="match money" data-id="${m.id}">
+        <div class="match money${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
           <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
           <div class="winner-row">
             <select class="winner" ${closed ? 'disabled' : ''}>
@@ -414,7 +430,7 @@
     } else if (closed) {
       statusEl = `<span class="badge">Läuft</span>`;
     } else {
-      statusEl = `<button class="btn save small">Speichern</button>`;
+      statusEl = `<button class="btn save small${m.my_bet ? ' saved' : ''}">Speichern</button>`;
     }
 
     let setOptions;
@@ -454,7 +470,7 @@
     }
 
     return `
-      <div class="match tennis-pts" data-id="${m.id}">
+      <div class="match tennis-pts${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
         <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
         <div>${pickEl}</div>
         <div class="match-team away"><span class="tname">${m.away_name}</span>${awayImg}</div>
@@ -565,25 +581,27 @@
       picks.push({ matchId: Number(slot.dataset.matchId), driver, pos: slot.dataset.pos });
     }
 
-    // Stake for money mode (only applied to P1)
-    let stake = 0;
+    // Stake für Geldmodus: Gesamteinsatz wird gleichmäßig auf alle Slots verteilt
+    let stakePerSlot = 0;
     if (mode === 'money') {
-      stake = Number(card.querySelector('.f1-stake')?.value || 0);
-      if (!stake || stake < 10 || stake > 500) {
-        Tippspiel.toast('Einsatz zwischen 10 und 500 CHF.', 'error'); return;
+      const totalStake = Number(card.querySelector('.f1-stake')?.value || 0);
+      const minTotal = picks.length * 10;
+      const maxTotal = picks.length * 500;
+      if (!totalStake || totalStake < minTotal || totalStake > maxTotal) {
+        Tippspiel.toast(`Gesamteinsatz zwischen ${minTotal} und ${maxTotal} CHF (${picks.length} × 10–500).`, 'error'); return;
       }
+      stakePerSlot = parseFloat((totalStake / picks.length).toFixed(2));
     }
 
-    // Send all bets in parallel
+    // Alle Tipps parallel senden
     try {
-      const requests = picks.map(({ matchId, driver, pos }) => {
+      const requests = picks.map(({ matchId, driver }) => {
         const body = {
           match_id: matchId, mode,
           tip_home: 0, tip_away: 0,
           extra_data: { driver },
           group_id: groupId,
-          // Only P1 carries the actual stake; others are 0 (informational)
-          stake: (mode === 'money' && pos === 'P1') ? stake : 0,
+          stake: stakePerSlot,
         };
         return Tippspiel.post('/Tippspiel/api/bets.php', body);
       });

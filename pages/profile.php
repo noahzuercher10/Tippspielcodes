@@ -43,12 +43,12 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
 <section class="card">
   <h2>Darstellung</h2>
   <div class="theme-toggle">
-    <span style="font-size:14px">Dark Mode</span>
+    <span style="font-size:14px">Light Mode</span>
     <label class="toggle-switch">
       <input type="checkbox" id="theme-toggle" <?= $isDark ? 'checked' : '' ?>>
       <span class="toggle-slider"></span>
     </label>
-    <span style="font-size:14px;color:var(--muted)">Light Mode</span>
+    <span style="font-size:14px;color:var(--muted)">Dark Mode</span>
   </div>
 </section>
 

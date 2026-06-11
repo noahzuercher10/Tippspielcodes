@@ -271,58 +271,62 @@ abstract class SportApi
 
     protected function upsertUpcoming(int $leagueId, array $n): bool
     {
+        if (!$n['api_event_id']) return false;   // Kein api_event_id → überspringen
         $pdo = db();
-        $st = $pdo->prepare('SELECT id FROM matches WHERE api_event_id = ?');
-        $st->execute([$n['api_event_id']]);
-        $existing = (int)$st->fetchColumn();
-        if ($existing) {
+        try {
             $pdo->prepare(
-                'UPDATE matches SET league_id=?, home_name=?, away_name=?,
-                    home_short=?, away_short=?, match_datetime=?,
-                    home_badge=IFNULL(?,home_badge), away_badge=IFNULL(?,away_badge)
-                  WHERE id=?'
+                'INSERT INTO matches (league_id, home_name, away_name, home_short, away_short,
+                                      match_datetime, status, api_event_id, home_badge, away_badge)
+                 VALUES (?,?,?,?,?,?,"upcoming",?,?,?)
+                 ON DUPLICATE KEY UPDATE
+                   league_id=VALUES(league_id), home_name=VALUES(home_name),
+                   away_name=VALUES(away_name), home_short=VALUES(home_short),
+                   away_short=VALUES(away_short), match_datetime=VALUES(match_datetime),
+                   home_badge=IFNULL(VALUES(home_badge), home_badge),
+                   away_badge=IFNULL(VALUES(away_badge), away_badge)'
             )->execute([$leagueId, $n['home_name'], $n['away_name'],
-                        $n['home_short'], $n['away_short'], $n['datetime'],
-                        $n['home_badge'] ?? null, $n['away_badge'] ?? null, $existing]);
+                        $n['home_short'], $n['away_short'], $n['datetime'], $n['api_event_id'],
+                        $n['home_badge'] ?? null, $n['away_badge'] ?? null]);
+        } catch (Throwable $e) {
+            $this->lastError = 'upsertUpcoming: ' . $e->getMessage();
             return false;
         }
-        $pdo->prepare(
-            'INSERT INTO matches (league_id, home_name, away_name, home_short, away_short,
-                                  match_datetime, status, api_event_id, home_badge, away_badge)
-             VALUES (?,?,?,?,?,?,"upcoming",?,?,?)'
-        )->execute([$leagueId, $n['home_name'], $n['away_name'],
-                    $n['home_short'], $n['away_short'], $n['datetime'], $n['api_event_id'],
-                    $n['home_badge'] ?? null, $n['away_badge'] ?? null]);
-        return true;
+        return (int)$pdo->lastInsertId() > 0; // 0 = ON DUPLICATE KEY → already existed
     }
 
     protected function upsertFinished(int $leagueId, array $n): int
     {
+        if (!$n['api_event_id']) return 0;   // Kein api_event_id → überspringen
         $pdo = db();
-        $st = $pdo->prepare('SELECT id FROM matches WHERE api_event_id = ?');
-        $st->execute([$n['api_event_id']]);
-        $existing = (int)$st->fetchColumn();
-        if ($existing) {
+        try {
             $pdo->prepare(
-                'UPDATE matches SET home_name=?, away_name=?, home_short=?, away_short=?,
-                    home_score=?, away_score=?, status="finished", match_datetime=?,
-                    home_badge=IFNULL(?,home_badge), away_badge=IFNULL(?,away_badge)
-                  WHERE id=?'
-            )->execute([$n['home_name'], $n['away_name'], $n['home_short'], $n['away_short'],
-                        $n['home_score'], $n['away_score'], $n['datetime'],
-                        $n['home_badge'] ?? null, $n['away_badge'] ?? null, $existing]);
-            return $existing;
+                'INSERT INTO matches (league_id, home_name, away_name, home_short, away_short,
+                                      match_datetime, home_score, away_score, status, api_event_id,
+                                      home_badge, away_badge)
+                 VALUES (?,?,?,?,?,?,?,?,"finished",?,?,?)
+                 ON DUPLICATE KEY UPDATE
+                   home_name=VALUES(home_name), away_name=VALUES(away_name),
+                   home_short=VALUES(home_short), away_short=VALUES(away_short),
+                   home_score=VALUES(home_score), away_score=VALUES(away_score),
+                   status="finished", match_datetime=VALUES(match_datetime),
+                   home_badge=IFNULL(VALUES(home_badge), home_badge),
+                   away_badge=IFNULL(VALUES(away_badge), away_badge)'
+            )->execute([$leagueId, $n['home_name'], $n['away_name'],
+                        $n['home_short'], $n['away_short'], $n['datetime'],
+                        $n['home_score'], $n['away_score'], $n['api_event_id'],
+                        $n['home_badge'] ?? null, $n['away_badge'] ?? null]);
+        } catch (Throwable $e) {
+            $this->lastError = 'upsertFinished: ' . $e->getMessage();
+            return 0;
         }
-        $pdo->prepare(
-            'INSERT INTO matches (league_id, home_name, away_name, home_short, away_short,
-                                  match_datetime, home_score, away_score, status, api_event_id,
-                                  home_badge, away_badge)
-             VALUES (?,?,?,?,?,?,?,?,"finished",?,?,?)'
-        )->execute([$leagueId, $n['home_name'], $n['away_name'],
-                    $n['home_short'], $n['away_short'], $n['datetime'],
-                    $n['home_score'], $n['away_score'], $n['api_event_id'],
-                    $n['home_badge'] ?? null, $n['away_badge'] ?? null]);
-        return (int)$pdo->lastInsertId();
+        // LAST_INSERT_ID(): >0 bei neuem Insert, 0 bei ON DUPLICATE KEY → suche bestehende ID
+        $id = (int)$pdo->lastInsertId();
+        if ($id === 0) {
+            $st = $pdo->prepare('SELECT id FROM matches WHERE api_event_id = ?');
+            $st->execute([$n['api_event_id']]);
+            $id = (int)$st->fetchColumn();
+        }
+        return $id;
     }
 
     /** HTTP-Call (cURL bevorzugt, file_get_contents als Fallback). */
