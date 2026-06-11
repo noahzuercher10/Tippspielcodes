@@ -60,7 +60,8 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
     <?php
       $stmt = db()->prepare(
         'SELECT b.*, m.match_datetime, m.home_score, m.away_score,
-                m.home_name AS hn, m.away_name AS an
+                m.home_name AS hn, m.away_name AS an,
+                m.home_short AS hs, m.away_short AS as2
          FROM bets b
          JOIN matches m ON m.id = b.match_id
          WHERE b.user_id = ?
@@ -72,19 +73,56 @@ $picUrl = $hasPic ? '/Tippspiel/' . htmlspecialchars($user['profile_picture']) :
     ?>
       <tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Noch keine Tipps abgegeben.</td></tr>
     <?php else: foreach ($rows as $r):
-          $tipText = $r['mode'] === 'points'
-            ? (int)$r['tip_home'].' : '.(int)$r['tip_away']
-            : ($r['tip_winner'] === 'home' ? 'Heimsieg'
-              : ($r['tip_winner'] === 'away' ? 'Auswärtssieg' : 'Unentschieden'));
+          // Extra-Daten dekodieren (F1 Fahrer, Tennis Sets)
+          $ed = $r['extra_data'] ? json_decode($r['extra_data'], true) : [];
+          $driver = trim($ed['driver'] ?? '');
+          $isF1   = $driver !== '' || preg_match('/^P\d+$/', (string)$r['hs']);
+
+          // Spielname: F1 kompakter anzeigen
+          if ($isF1) {
+              // "Barcelona Grand Prix – 3. Platz (Max Verstappen)" → "Barcelona GP – P3"
+              $raceName = (string)$r['an']; // away_name = Rennenname
+              $pos      = (string)$r['hs']; // home_short = P1..P10
+              $spielText = $raceName . ' – ' . $pos;
+          } else {
+              $spielText = $r['hn'] . ' – ' . $r['an'];
+          }
+
+          // Tipp-Text
+          if ($isF1) {
+              $tipText = $driver ?: '–';
+          } elseif ($r['mode'] === 'points') {
+              $tipText = (int)$r['tip_home'] . ' : ' . (int)$r['tip_away'];
+          } else {
+              $tipText = $r['tip_winner'] === 'home' ? 'Heimsieg'
+                       : ($r['tip_winner'] === 'away' ? 'Auswärtssieg' : 'Unentschieden');
+          }
+
+          // Ergebnis-Anzeige: F1 → Fahrer aus home_name
+          if ($isF1) {
+              $ergebnisText = '–';
+              if ($r['home_score'] !== null) {
+                  if (preg_match('/\(([^)]+)\)\s*$/', (string)$r['hn'], $m2)) {
+                      $ergebnisText = htmlspecialchars(trim($m2[1]));
+                  } else {
+                      $ergebnisText = 'Fertig';
+                  }
+              }
+          } else {
+              $ergebnisText = $r['home_score'] !== null
+                  ? ((int)$r['home_score'] . ' : ' . (int)$r['away_score'])
+                  : '–';
+          }
+
           $ertrag = $r['mode'] === 'points'
-            ? ((int)$r['points_earned'].' Pkt')
-            : number_format((float)$r['money_earned'],2,'.',"'");
+            ? ((int)$r['points_earned'] . ' Pkt')
+            : number_format((float)$r['money_earned'], 2, '.', "'");
     ?>
       <tr>
         <td><?= date('d.m.Y', strtotime($r['match_datetime'])) ?></td>
-        <td><?= htmlspecialchars($r['hn'].' – '.$r['an']) ?></td>
+        <td><?= htmlspecialchars($spielText) ?></td>
         <td><?= htmlspecialchars($tipText) ?></td>
-        <td><?= $r['home_score'] !== null ? ((int)$r['home_score'].' : '.(int)$r['away_score']) : '–' ?></td>
+        <td><?= $ergebnisText ?></td>
         <td><span class="badge <?= $r['mode'] ?>"><?= $r['mode'] === 'points' ? 'Punkte' : 'Geld' ?></span></td>
         <td><?= htmlspecialchars($ertrag) ?></td>
       </tr>
