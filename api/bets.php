@@ -31,6 +31,16 @@ try {
         throw new RuntimeException('Spiel hat bereits begonnen oder ist beendet.');
     }
 
+    // Gruppe muss zur gleichen Liga gehören wie das getippte Spiel
+    if ($groupId !== null) {
+        $gChk = $pdo->prepare('SELECT league_id FROM groups_t WHERE id = ?');
+        $gChk->execute([$groupId]);
+        $gLeague = (int)$gChk->fetchColumn();
+        if ($gLeague !== (int)$match['league_id']) {
+            throw new RuntimeException('Diese Gruppe gehört zu einer anderen Liga.');
+        }
+    }
+
     if ($mode === 'points') {
         $tipH = (int)($in['tip_home'] ?? 0);
         $tipA = (int)($in['tip_away'] ?? 0);

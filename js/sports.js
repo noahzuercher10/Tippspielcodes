@@ -44,10 +44,15 @@
 
   const myGroups = await Tippspiel.get('/Tippspiel/api/groups.php');
   function fillGroups() {
-    const mode = Tippspiel.getMode();
+    const mode     = Tippspiel.getMode();
+    const leagueId = leagueSel.value;
+    const prev     = groupSel.value;
     groupSel.innerHTML = '<option value="">Ohne Gruppe</option>';
-    myGroups.filter(g => g.mode === mode).forEach(g =>
-      groupSel.add(new Option(g.name, g.id)));
+    myGroups
+      .filter(g => g.mode === mode && (!leagueId || String(g.league_id) === leagueId))
+      .forEach(g => groupSel.add(new Option(g.name, g.id)));
+    // Vorherige Auswahl beibehalten wenn noch vorhanden
+    if (prev && [...groupSel.options].some(o => o.value === prev)) groupSel.value = prev;
   }
   fillGroups();
 
@@ -95,6 +100,7 @@
   function onLeagueChange() {
     matchesEl.innerHTML = '';
     progressBar.style.width = '0%'; progressLabel.textContent = '';
+    fillGroups(); // Gruppen nach gewählter Liga filtern
     if (!leagueSel.value) {
       dayWrap.style.display = 'none'; groupWrap.style.display = 'none';
       if (refreshBtn) refreshBtn.style.display = 'none';
