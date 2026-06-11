@@ -27,7 +27,7 @@
   const seasonBtn  = document.getElementById('season-btn');
   const progressBar   = document.getElementById('tip-progress-bar');
   const progressLabel = document.getElementById('tip-progress-label');
-  let seasonMode = false;
+  let seasonMode = true;   // Standard: alle Spiele der Saison anzeigen
   let currentSportClass = '';
   let currentLeagueName = '';
 
@@ -97,11 +97,14 @@
   });
   groupSel.addEventListener('change', () => loadMatches());
   if (refreshBtn) refreshBtn.addEventListener('click', () => loadMatches(true));
-  if (seasonBtn) seasonBtn.addEventListener('click', () => {
-    seasonMode = !seasonMode;
-    seasonBtn.textContent = seasonMode ? 'Tagesansicht' : 'Saisonübersicht';
-    loadMatches();
-  });
+  if (seasonBtn) {
+    seasonBtn.textContent = 'Tagesansicht'; // Start im Saison-Modus
+    seasonBtn.addEventListener('click', () => {
+      seasonMode = !seasonMode;
+      seasonBtn.textContent = seasonMode ? 'Tagesansicht' : 'Saisonübersicht';
+      loadMatches();
+    });
+  }
 
   /** Reagiert auf Sportart-Wechsel: lädt Liga-Dropdown, blendet Rest aus. */
   async function onSportChange() {
@@ -132,8 +135,11 @@
     dayWrap.style.display   = 'inline-flex';
     groupWrap.style.display = 'inline-flex';
     if (refreshBtn) refreshBtn.style.display = 'inline-block';
-    if (seasonBtn)  seasonBtn.style.display  = 'inline-block';
-    seasonMode = false;
+    if (seasonBtn) {
+      seasonBtn.style.display = 'inline-block';
+      seasonMode = true;                        // bei neuer Liga immer Saisonansicht
+      seasonBtn.textContent = 'Tagesansicht';
+    }
     loadMatches();
   }
 
@@ -431,39 +437,66 @@
    * @param {number}  now       Aktueller Timestamp in ms
    */
   function renderMatchRow(m, isSingle, now) {
-    const mode     = Tippspiel.getMode();
-    const isTennis = currentSportClass === 'TennisSport';
+    const mode      = Tippspiel.getMode();
+    const isTennis  = currentSportClass === 'TennisSport';
     const isBestOf5 = isTennis && /australian open|roland garros|wimbledon|us open/i.test(currentLeagueName);
 
     if (isTennis && mode === 'points') return renderTennisRow(m, isBestOf5, now);
 
-    const start  = new Date(m.match_datetime);
-    const closed = m.status !== 'upcoming' || start.getTime() <= now;
-    const result = (m.home_score !== null && m.away_score !== null)
-      ? `${m.home_score} : ${m.away_score}` : '';
-    const homeImg = teamImg(m.home_badge, m.home_short || m.home_name.slice(0,3), isSingle);
-    const awayImg = teamImg(m.away_badge, m.away_short || m.away_name.slice(0,3), isSingle);
-    const timeStr = start.toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+    const start     = new Date(m.match_datetime);
+    const closed    = m.status !== 'upcoming' || start.getTime() <= now;
+    const hasResult = m.home_score !== null && m.away_score !== null;
+    const result    = hasResult ? `${m.home_score} : ${m.away_score}` : null;
+    const homeImg   = teamImg(m.home_badge, m.home_short || m.home_name.slice(0,3), isSingle);
+    const awayImg   = teamImg(m.away_badge, m.away_short || m.away_name.slice(0,3), isSingle);
+    const timeStr   = start.toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
 
-    let statusEl;
-    if (m.status === 'finished' || (start.getTime() <= now && m.status !== 'upcoming')) {
-      statusEl = result ? `<span class="result-score">${result}</span>` : `<span class="badge">Beendet</span>`;
-    } else if (closed) {
-      statusEl = `<span class="badge">Läuft</span>`;
-    } else {
-      statusEl = `<button class="btn save small${m.my_bet ? ' saved' : ''}">Speichern</button>`;
+    // --- Vergangenes / laufendes Spiel: Read-only Ergebniskarte ---
+    if (closed) {
+      let myTipText = null;
+      let tipClass  = 'tip-pending';
+      if (m.my_bet) {
+        if (mode === 'points') {
+          myTipText = `${m.my_bet.tip_home} : ${m.my_bet.tip_away}`;
+          if (hasResult) {
+            tipClass = (Number(m.my_bet.tip_home) === Number(m.home_score) &&
+                        Number(m.my_bet.tip_away) === Number(m.away_score))
+              ? 'tip-correct' : 'tip-wrong';
+          }
+        } else {
+          myTipText = m.my_bet.tip_winner === 'home' ? 'Heimsieg'
+                    : m.my_bet.tip_winner === 'away' ? 'Auswärtssieg' : 'Unentschieden';
+          if (hasResult) {
+            const actual = Number(m.home_score) > Number(m.away_score) ? 'home'
+                         : Number(m.home_score) < Number(m.away_score) ? 'away' : 'draw';
+            tipClass = m.my_bet.tip_winner === actual ? 'tip-correct' : 'tip-wrong';
+          }
+        }
+      }
+      const running = !hasResult && m.status !== 'finished';
+      return `
+        <div class="match past${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
+          <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
+          <div class="match-result">
+            ${result ? `<span class="result-score">${result}</span>` : `<span class="badge">${running ? 'Läuft' : 'Beendet'}</span>`}
+            ${myTipText ? `<span class="my-tip ${tipClass}">Tipp: ${myTipText}</span>` : ''}
+          </div>
+          <div class="match-team away"><span class="tname">${m.away_name}</span>${awayImg}</div>
+          <div class="meta">${timeStr}</div>
+        </div>`;
     }
 
+    // --- Offenes Spiel: Tipp-Eingabe ---
     if (mode === 'points') {
       const tipH = m.my_bet ? m.my_bet.tip_home : '';
       const tipA = m.my_bet ? m.my_bet.tip_away : '';
       return `
         <div class="match${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
           <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
-          <input type="number" min="0" class="tipH" value="${tipH ?? ''}" ${closed ? 'disabled' : ''}>
-          <input type="number" min="0" class="tipA" value="${tipA ?? ''}" ${closed ? 'disabled' : ''}>
+          <input type="number" min="0" class="tipH" value="${tipH ?? ''}">
+          <input type="number" min="0" class="tipA" value="${tipA ?? ''}">
           <div class="match-team away"><span class="tname">${m.away_name}</span>${awayImg}</div>
-          <div><div class="meta">${timeStr}</div>${statusEl}</div>
+          <div><div class="meta">${timeStr}</div><button class="btn save small${m.my_bet ? ' saved' : ''}">Speichern</button></div>
         </div>`;
     } else {
       const tw    = m.my_bet ? m.my_bet.tip_winner : '';
@@ -473,17 +506,17 @@
         <div class="match money${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
           <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
           <div class="winner-row">
-            <select class="winner" ${closed ? 'disabled' : ''}>
+            <select class="winner">
               <option value="">– Sieger –</option>
               <option value="home" ${sel('home')}>Heimsieg</option>
               <option value="draw" ${sel('draw')}>Unentschieden</option>
               <option value="away" ${sel('away')}>Auswärtssieg</option>
             </select>
             <input type="number" step="0.01" min="10" max="500"
-                   class="stake" placeholder="Einsatz" value="${stake}" ${closed ? 'disabled' : ''}>
+                   class="stake" placeholder="Einsatz" value="${stake}">
           </div>
           <div class="match-team away"><span class="tname">${m.away_name}</span>${awayImg}</div>
-          <div><div class="meta">${timeStr}</div>${statusEl}</div>
+          <div><div class="meta">${timeStr}</div><button class="btn save small${m.my_bet ? ' saved' : ''}">Speichern</button></div>
         </div>`;
     }
   }
@@ -499,23 +532,47 @@
    * @param {number}  now        Aktueller Timestamp in ms
    */
   function renderTennisRow(m, isBestOf5, now) {
-    const start  = new Date(m.match_datetime);
-    const closed = m.status !== 'upcoming' || start.getTime() <= now;
-    const result = (m.home_score !== null && m.away_score !== null)
-      ? `${m.home_score} : ${m.away_score}` : '';
-    const timeStr = start.toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
-    const homeImg = teamImg(m.home_badge, m.home_short || m.home_name.slice(0,3), true);
-    const awayImg = teamImg(m.away_badge, m.away_short || m.away_name.slice(0,3), true);
+    const start     = new Date(m.match_datetime);
+    const closed    = m.status !== 'upcoming' || start.getTime() <= now;
+    const hasResult = m.home_score !== null && m.away_score !== null;
+    const result    = hasResult ? `${m.home_score} : ${m.away_score}` : null;
+    const timeStr   = start.toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
+    const homeImg   = teamImg(m.home_badge, m.home_short || m.home_name.slice(0,3), true);
+    const awayImg   = teamImg(m.away_badge, m.away_short || m.away_name.slice(0,3), true);
 
-    let statusEl;
-    if (m.status === 'finished' || (start.getTime() <= now && m.status !== 'upcoming')) {
-      statusEl = result ? `<span class="result-score">${result}</span>` : `<span class="badge">Beendet</span>`;
-    } else if (closed) {
-      statusEl = `<span class="badge">Läuft</span>`;
-    } else {
-      statusEl = `<button class="btn save small${m.my_bet ? ' saved' : ''}">Speichern</button>`;
+    // --- Vergangenes / laufendes Spiel: Read-only Ergebniskarte ---
+    if (closed) {
+      let myTipText = null;
+      let tipClass  = 'tip-pending';
+      if (m.my_bet?.extra_data) {
+        try {
+          const ed   = JSON.parse(m.my_bet.extra_data);
+          const sets = ed.sets || [];
+          if (sets.length) {
+            let tipH = 0, tipA = 0;
+            sets.forEach(s => { if (s[0] > s[1]) tipH++; else if (s[1] > s[0]) tipA++; });
+            myTipText = `${tipH}:${tipA}`;
+            if (hasResult) {
+              tipClass = (tipH === Number(m.home_score) && tipA === Number(m.away_score))
+                ? 'tip-correct' : 'tip-wrong';
+            }
+          }
+        } catch {}
+      }
+      const running = !hasResult && m.status !== 'finished';
+      return `
+        <div class="match past${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
+          <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
+          <div class="match-result">
+            ${result ? `<span class="result-score">${result}</span>` : `<span class="badge">${running ? 'Läuft' : 'Beendet'}</span>`}
+            ${myTipText ? `<span class="my-tip ${tipClass}">Tipp: ${myTipText}</span>` : ''}
+          </div>
+          <div class="match-team away"><span class="tname">${m.away_name}</span>${awayImg}</div>
+          <div class="meta">${timeStr}</div>
+        </div>`;
     }
 
+    // --- Offenes Spiel: Satz-Picker ---
     let setOptions;
     if (isBestOf5) {
       setOptions = ['3:0','3:1','3:2','2:3','1:3','0:3'].map(v => `<option value="${v}">${v}</option>`).join('');
@@ -537,27 +594,22 @@
       } catch {}
     }
 
-    const setInputsHtml = buildSetInputsHtml(existingSetResult, existingSets, closed);
-    let pickEl;
-    if (closed) {
-      pickEl = result ? `<span class="result-score">${result}</span>` : `<span class="badge">Beendet</span>`;
-    } else {
-      const optsHtml = setOptions.replace(`value="${existingSetResult}"`, `value="${existingSetResult}" selected`);
-      pickEl = `<div class="tennis-pick">
-          <select class="set-result-sel" data-bo5="${isBestOf5 ? '1' : '0'}">
-            <option value="">– Satzverhältnis –</option>
-            ${optsHtml}
-          </select>
-          <div class="set-inputs">${setInputsHtml}</div>
-        </div>`;
-    }
+    const setInputsHtml = buildSetInputsHtml(existingSetResult, existingSets, false);
+    const optsHtml = setOptions.replace(`value="${existingSetResult}"`, `value="${existingSetResult}" selected`);
+    const pickEl = `<div class="tennis-pick">
+        <select class="set-result-sel" data-bo5="${isBestOf5 ? '1' : '0'}">
+          <option value="">– Satzverhältnis –</option>
+          ${optsHtml}
+        </select>
+        <div class="set-inputs">${setInputsHtml}</div>
+      </div>`;
 
     return `
       <div class="match tennis-pts${m.my_bet ? ' tipped' : ''}" data-id="${m.id}">
         <div class="match-team">${homeImg}<span class="tname">${m.home_name}</span></div>
         <div>${pickEl}</div>
         <div class="match-team away"><span class="tname">${m.away_name}</span>${awayImg}</div>
-        <div><div class="meta">${timeStr}</div>${statusEl}</div>
+        <div><div class="meta">${timeStr}</div><button class="btn save small${m.my_bet ? ' saved' : ''}">Speichern</button></div>
       </div>`;
   }
 

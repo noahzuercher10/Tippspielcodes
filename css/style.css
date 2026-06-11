@@ -251,6 +251,27 @@ body.dark .auth-body {
   border-radius: 6px; border: 1px solid var(--border);
 }
 
+/* ---- Past match (read-only result card) ---- */
+.match.past {
+  grid-template-columns: 1fr 120px 1fr 80px;
+  opacity: .88;
+}
+.match-result {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.my-tip {
+  font-size: 11px; padding: 1px 8px; border-radius: 10px; white-space: nowrap;
+}
+.my-tip.tip-correct {
+  background: rgba(5,150,105,.15); color: var(--accent); font-weight: 600;
+}
+.my-tip.tip-wrong {
+  background: rgba(239,68,68,.12); color: var(--danger);
+}
+.my-tip.tip-pending {
+  background: var(--surface-2); color: var(--muted);
+}
+
 /* ---- F1 Rennen-Karte ---- */
 .f1-race-card {
   background: var(--surface); border: 1px solid var(--border);
@@ -458,5 +479,6 @@ dialog.modal input, dialog.modal select {
   .match { grid-template-columns: 1fr 50px 50px 1fr; }
   .match .save { grid-column: 1 / -1; }
   .match.money { grid-template-columns: 1fr 1fr; }
+  .match.past { grid-template-columns: 1fr 80px 1fr; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
 }

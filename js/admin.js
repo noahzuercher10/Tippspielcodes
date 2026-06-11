@@ -104,8 +104,8 @@
   document.getElementById('cleanup-dupes').onclick = async () => {
     try {
       const r = await post({ action:'cleanup_dupes' });
-      Tippspiel.toast(`Duplikate bereinigt: ${r.deleted} Einträge gelöscht`, 'ok');
-      syncReport.textContent = `Duplikate bereinigt: ${r.deleted} Zeilen gelöscht.`;
+      Tippspiel.toast(`Bereinigt: ${r.deleted} Duplikate gelöscht, ${r.badges_filled ?? 0} Badges ergänzt`, 'ok');
+      syncReport.textContent = `Duplikate bereinigt: ${r.deleted} Zeilen gelöscht, ${r.badges_filled ?? 0} fehlende Badges nachgefüllt.`;
       refreshMatches();
     } catch(e){ Tippspiel.toast(e.message,'error'); }
   };

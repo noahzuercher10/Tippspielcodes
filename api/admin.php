@@ -160,7 +160,10 @@ try {
 
         // ---- Duplikate in matches-Tabelle bereinigen ----
         case 'cleanup_dupes':
-            $deleted = $pdo->exec(
+            $deleted = 0;
+
+            // Pass 1: gleiche api_event_id – niedrigste id behalten
+            $deleted += (int)$pdo->exec(
                 'DELETE m1 FROM matches m1
                  INNER JOIN matches m2
                    ON m1.api_event_id = m2.api_event_id
@@ -168,7 +171,71 @@ try {
                   AND m1.api_event_id != ""
                   AND m1.id > m2.id'
             );
-            echo json_encode(['ok' => true, 'deleted' => $deleted]);
+
+            // Pass 2: gleiche Teams am gleichen Tag (Cross-Source: TheSportsDB vs OpenLigaDB vs FDO)
+            // Qualitätsscore: hat Badge (2 Pkt) + hat Ergebnis (1 Pkt) → höchster Score wird behalten
+            $groups = $pdo->query(
+                "SELECT GROUP_CONCAT(id ORDER BY
+                    (home_badge IS NOT NULL AND home_badge != '') * 2 +
+                    (home_score IS NOT NULL) DESC, id ASC) AS ids
+                 FROM matches
+                 GROUP BY LOWER(home_name), LOWER(away_name), DATE(match_datetime)
+                 HAVING COUNT(*) > 1"
+            )->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($groups as $idStr) {
+                $ids = explode(',', $idStr);
+                $keepId  = (int)array_shift($ids); // höchste Qualität zuerst
+                $delIds  = array_map('intval', $ids);
+                if (!$delIds) continue;
+
+                // Badge vom besten Duplikat auf den Keeper übertragen, falls Keeper keins hat
+                $badgeRow = $pdo->prepare(
+                    'SELECT home_badge, away_badge FROM matches
+                     WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')
+                       AND home_badge IS NOT NULL AND home_badge != "" LIMIT 1'
+                );
+                $badgeRow->execute($delIds);
+                $badge = $badgeRow->fetch();
+                if ($badge) {
+                    $pdo->prepare(
+                        'UPDATE matches SET
+                           home_badge = COALESCE(NULLIF(home_badge,""), ?),
+                           away_badge = COALESCE(NULLIF(away_badge,""), ?)
+                         WHERE id = ?'
+                    )->execute([$badge['home_badge'], $badge['away_badge'], $keepId]);
+                }
+
+                // Duplikate löschen (Tipps auf diese IDs bleiben erhalten, da kein FK-Constraint)
+                $pdo->exec(
+                    'DELETE FROM matches WHERE id IN (' . implode(',', $delIds) . ')'
+                );
+                $deleted += count($delIds);
+            }
+
+            // Pass 3: alle Matches ohne Badge – Badge aus anderer Row gleichen Teams nachladen
+            $updated = $pdo->exec(
+                "UPDATE matches m
+                 JOIN (
+                   SELECT LOWER(home_name) AS team, MIN(home_badge) AS badge
+                   FROM matches WHERE home_badge IS NOT NULL AND home_badge != ''
+                   GROUP BY LOWER(home_name)
+                 ) b ON LOWER(m.home_name) = b.team
+                 SET m.home_badge = b.badge
+                 WHERE (m.home_badge IS NULL OR m.home_badge = '')"
+            );
+            $updated += (int)$pdo->exec(
+                "UPDATE matches m
+                 JOIN (
+                   SELECT LOWER(away_name) AS team, MIN(away_badge) AS badge
+                   FROM matches WHERE away_badge IS NOT NULL AND away_badge != ''
+                   GROUP BY LOWER(away_name)
+                 ) b ON LOWER(m.away_name) = b.team
+                 SET m.away_badge = b.badge
+                 WHERE (m.away_badge IS NULL OR m.away_badge = '')"
+            );
+
+            echo json_encode(['ok' => true, 'deleted' => $deleted, 'badges_filled' => $updated]);
             break;
 
         default:

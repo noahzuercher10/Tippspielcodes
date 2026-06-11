@@ -116,12 +116,59 @@ foreach ($matches as &$m) {
 }
 unset($m);
 
-// Dedup: gleiche api_event_id nur einmal ausgeben (Schutz gegen DB-Duplikate)
+// ---- Badges für Matches ohne Badge aus DB nachfüllen ----
+// (OpenLigaDB/FDO-Rows haben oft kein Badge, TheSportsDB-Rows schon)
+$missingTeams = [];
+foreach ($matches as $m) {
+    if (empty($m['home_badge'])) $missingTeams[strtolower($m['home_name'])] = true;
+    if (empty($m['away_badge'])) $missingTeams[strtolower($m['away_name'])] = true;
+}
+if ($missingTeams) {
+    $teamList = array_keys($missingTeams);
+    $ph = implode(',', array_fill(0, count($teamList), '?'));
+    $bSt = db()->prepare(
+        "SELECT team, badge FROM (
+            SELECT LOWER(home_name) AS team, home_badge AS badge FROM matches
+              WHERE LOWER(home_name) IN ($ph) AND home_badge IS NOT NULL AND home_badge != ''
+            UNION
+            SELECT LOWER(away_name), away_badge FROM matches
+              WHERE LOWER(away_name) IN ($ph) AND away_badge IS NOT NULL AND away_badge != ''
+         ) AS t GROUP BY team"
+    );
+    $bSt->execute(array_merge($teamList, $teamList));
+    $badgeMap = [];
+    foreach ($bSt->fetchAll() as $row) $badgeMap[$row['team']] = $row['badge'];
+    foreach ($matches as &$m) {
+        if (empty($m['home_badge'])) $m['home_badge'] = $badgeMap[strtolower($m['home_name'])] ?? null;
+        if (empty($m['away_badge'])) $m['away_badge'] = $badgeMap[strtolower($m['away_name'])] ?? null;
+    }
+    unset($m);
+}
+
+// ---- Dedup Pass 1: gleiche api_event_id (Schutz gegen DB-Duplikate) ----
+// Vorher nach Qualität sortieren: Rows mit Badge + Ergebnis bevorzugen
+usort($matches, function ($a, $b) {
+    $qa = (!empty($a['home_badge']) ? 2 : 0) + ($a['home_score'] !== null ? 1 : 0);
+    $qb = (!empty($b['home_badge']) ? 2 : 0) + ($b['home_score'] !== null ? 1 : 0);
+    if ($qb !== $qa) return $qb - $qa;
+    return $a['id'] - $b['id']; // gleiche Qualität: ältere Row bevorzugen
+});
 $seenKeys = [];
 $matches  = array_values(array_filter($matches, function ($m) use (&$seenKeys) {
     $key = !empty($m['api_event_id']) ? $m['api_event_id'] : 'id_' . $m['id'];
     if (isset($seenKeys[$key])) return false;
     $seenKeys[$key] = true;
+    return true;
+}));
+
+// ---- Dedup Pass 2: gleiche Teams am gleichen Tag (Cross-Source-Duplikate) ----
+// z.B. PSG vs Arsenal 3× weil TheSportsDB + OpenLigaDB + FDO alle eine eigene Row haben
+$seen2 = [];
+$matches = array_values(array_filter($matches, function ($m) use (&$seen2) {
+    $key = strtolower($m['home_name']) . '§' . strtolower($m['away_name'])
+         . '§' . substr($m['match_datetime'], 0, 10);
+    if (isset($seen2[$key])) return false;
+    $seen2[$key] = true;
     return true;
 }));
 
