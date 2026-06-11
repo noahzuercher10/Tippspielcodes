@@ -28,5 +28,5 @@ require_once __DIR__ . '/../includes/header.php';
 
   <div id="matches"></div>
 </section>
-<script src="/Tippspiel/js/sports.js?v=11"></script>
+<script src="/Tippspiel/js/sports.js?v=13"></script>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

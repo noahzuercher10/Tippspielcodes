@@ -218,6 +218,12 @@
     matchesEl.querySelectorAll('.f1-save').forEach(btn =>
       btn.addEventListener('click', () => saveF1Race(btn.closest('.f1-race-card')))
     );
+    // F1: Fahrer nur einmal wählbar – deaktiviert bereits gewählte Optionen in anderen Slots
+    matchesEl.querySelectorAll('.f1-race-card').forEach(card => {
+      const selects = card.querySelectorAll('select.driver-pick');
+      selects.forEach(sel => sel.addEventListener('change', () => syncF1DriverSelects(card)));
+      syncF1DriverSelects(card); // initialer Sync für vorausgefüllte Werte
+    });
     // Tennis set picker
     matchesEl.querySelectorAll('.set-result-sel').forEach(sel => {
       sel.addEventListener('change', () => updateSetInputs(sel));
@@ -559,6 +565,22 @@
       }
       loadMatches();
     } catch (e) { Tippspiel.toast(e.message, 'error'); }
+  }
+
+  // ----------------------------------------------------------------
+  // syncF1DriverSelects – deaktiviert bereits gewählte Fahrer in
+  // anderen Slots derselben Rennkarte (jeder Fahrer nur 1x wählbar)
+  // ----------------------------------------------------------------
+  function syncF1DriverSelects(card) {
+    const selects = [...card.querySelectorAll('select.driver-pick')];
+    const picked  = new Set(selects.map(s => s.value).filter(v => v !== ''));
+    selects.forEach(sel => {
+      const own = sel.value;
+      [...sel.options].forEach(opt => {
+        if (!opt.value) return; // leere Option immer erlaubt
+        opt.disabled = picked.has(opt.value) && opt.value !== own;
+      });
+    });
   }
 
   // ----------------------------------------------------------------

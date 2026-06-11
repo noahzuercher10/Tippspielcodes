@@ -134,11 +134,13 @@ class FootballSport extends SportApi
             }
 
             $n = [
-                'home_name'=>$home,'away_name'=>$away,
-                'home_short'=>$this->shortName($home),'away_short'=>$this->shortName($away),
-                'datetime'=>$dt,
-                'home_score'=>$hs,'away_score'=>$as,
-                'api_event_id'=>$apiEventId,
+                'home_name'  => $home, 'away_name'  => $away,
+                'home_short' => $this->shortName($home), 'away_short' => $this->shortName($away),
+                'datetime'   => $dt,
+                'home_score' => $hs, 'away_score' => $as,
+                'api_event_id' => $apiEventId,
+                'home_badge' => $this->lookupBadgeFromDB($home),
+                'away_badge' => $this->lookupBadgeFromDB($away),
             ];
             if ($n['home_score'] !== null && $n['away_score'] !== null) {
                 $mid = $this->upsertFinished($leagueId, $n);
@@ -187,12 +189,14 @@ class FootballSport extends SportApi
             }
 
             $n = [
-                'home_name'=>$home,'away_name'=>$away,
-                'home_short'=>$this->shortName($home),'away_short'=>$this->shortName($away),
-                'datetime'=>$dt,
-                'home_score'=>$isFinished ? (int)$hs : null,
-                'away_score'=>$isFinished ? (int)$as : null,
-                'api_event_id'=>$apiEventId,
+                'home_name'  => $home, 'away_name'  => $away,
+                'home_short' => $this->shortName($home), 'away_short' => $this->shortName($away),
+                'datetime'   => $dt,
+                'home_score' => $isFinished ? (int)$hs : null,
+                'away_score' => $isFinished ? (int)$as : null,
+                'api_event_id' => $apiEventId,
+                'home_badge' => $this->lookupBadgeFromDB($home),
+                'away_badge' => $this->lookupBadgeFromDB($away),
             ];
             if ($n['home_score'] !== null && $n['away_score'] !== null) {
                 $mid = $this->upsertFinished($leagueId, $n);

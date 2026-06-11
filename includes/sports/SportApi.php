@@ -148,7 +148,9 @@ abstract class SportApi
                     evaluate_match($matchId);
                     $updated++;
                 }
-            } elseif (!$isPast) {
+            } else {
+                // Auch vergangene Matches ohne Score speichern – so erscheinen sie
+                // in der Saisonübersicht; Tippen ist via Zeitcheck gesperrt.
                 $imported += $this->upsertUpcoming($leagueId, $n) ? 1 : 0;
             }
         }
@@ -268,6 +270,36 @@ abstract class SportApi
     }
 
     /** -------- DB Helpers -------- */
+
+    /**
+     * Sucht ein bekanntes Team-Badge in der DB anhand des Teamnamens.
+     * Nützlich für APIs (OpenLigaDB, football-data.org), die selbst keine
+     * Badge-URLs liefern, aber TheSportsDB hat das Team schon mit Badge gespeichert.
+     * Gecacht in einer statischen Variable (pro Request).
+     */
+    protected function lookupBadgeFromDB(string $teamName): ?string
+    {
+        if ($teamName === '') return null;
+        static $cache = [];
+        $key = mb_strtolower(trim($teamName));
+        if (array_key_exists($key, $cache)) return $cache[$key];
+
+        $pdo = db();
+        $st = $pdo->prepare(
+            'SELECT home_badge FROM matches WHERE LOWER(home_name) = ? AND home_badge IS NOT NULL LIMIT 1'
+        );
+        $st->execute([$key]);
+        $badge = $st->fetchColumn() ?: null;
+        if (!$badge) {
+            $st = $pdo->prepare(
+                'SELECT away_badge FROM matches WHERE LOWER(away_name) = ? AND away_badge IS NOT NULL LIMIT 1'
+            );
+            $st->execute([$key]);
+            $badge = $st->fetchColumn() ?: null;
+        }
+        $cache[$key] = $badge;
+        return $badge;
+    }
 
     protected function upsertUpcoming(int $leagueId, array $n): bool
     {
